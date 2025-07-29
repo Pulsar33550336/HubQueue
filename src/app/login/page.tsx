@@ -3,19 +3,22 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { GitCommit, Loader2 } from 'lucide-react';
+import { Loader2, Wrench } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const { login, user, isLoading: isAuthLoading } = useAuth();
+  const { login, user, isLoading: isAuthLoading, isMaintenanceMode } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -46,8 +49,32 @@ export default function LoginPage() {
     }
   };
 
-  if (isAuthLoading || user) {
-    return null; // Or a loading spinner, to prevent flashing the form
+  if (isAuthLoading || (!isAuthLoading && user)) {
+     return (
+        <div className="flex items-center justify-center min-h-screen bg-background">
+            <Card className="w-full max-w-sm">
+                <CardHeader className="text-center">
+                    <Skeleton className="w-24 h-10 mx-auto mb-4" />
+                    <Skeleton className="h-6 w-3/4 mx-auto" />
+                    <Skeleton className="h-4 w-1/2 mx-auto" />
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                        <Skeleton className="h-4 w-16" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                    <div className="space-y-2">
+                        <Skeleton className="h-4 w-16" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                </CardContent>
+                <CardFooter className="flex flex-col gap-4">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-4 w-48" />
+                </CardFooter>
+            </Card>
+        </div>
+     );
   }
 
   return (
@@ -55,8 +82,14 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
             <div className="flex items-center justify-center gap-3 mb-4">
-                <div className="p-2 bg-accent/20 rounded-lg">
-                    <GitCommit className="h-7 w-7" style={{ color: 'hsl(var(--accent))' }}/>
+                <div className="relative h-10 w-10">
+                    <Image 
+                        src="https://raw.githubusercontent.com/ClassIsland/ClassIsland/master/ClassIsland/Assets/AppLogo_AppLogo.svg" 
+                        alt="HubQueue Logo"
+                        fill
+                        className="object-contain"
+                        unoptimized
+                    />
                 </div>
                 <h1 className="text-2xl font-bold tracking-tight text-foreground">HubQueue</h1>
             </div>
@@ -64,6 +97,15 @@ export default function LoginPage() {
           <CardDescription>输入您的凭据以访问仪表板。</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {isMaintenanceMode && (
+            <Alert variant="default" className="border-primary/50 text-primary">
+              <Wrench className="h-4 w-4" />
+              <AlertTitle>正在维护</AlertTitle>
+              <AlertDescription>
+                网站正在维护中，只有管理员可以登录。
+              </AlertDescription>
+            </Alert>
+          )}
           <div className="space-y-2">
             <Label htmlFor="username">用户名</Label>
             <Input

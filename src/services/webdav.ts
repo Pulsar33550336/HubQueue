@@ -7,6 +7,7 @@ import type { ImageFile } from '@/types';
 
 const IMAGES_JSON_PATH = '/images.json';
 const USERS_JSON_PATH = '/users.json';
+const MAINTENANCE_JSON_PATH = '/maintenance.json';
 
 export interface StoredUser {
   username: string;
@@ -106,6 +107,29 @@ export async function saveUsers(users: StoredUser[]): Promise<{success: boolean,
   const client = getClient();
   try {
     await client.putFileContents(USERS_JSON_PATH, JSON.stringify(users, null, 2));
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getMaintenanceStatus(): Promise<{ isMaintenance: boolean }> {
+  const client = getClient();
+  try {
+    if (await client.exists(MAINTENANCE_JSON_PATH)) {
+      const content = await client.getFileContents(MAINTENANCE_JSON_PATH, { format: 'text' });
+      return JSON.parse(content as string);
+    }
+    return { isMaintenance: false };
+  } catch (error) {
+    return { isMaintenance: false };
+  }
+}
+
+export async function saveMaintenanceStatus(status: { isMaintenance: boolean }): Promise<{ success: boolean, error?: string }> {
+  const client = getClient();
+  try {
+    await client.putFileContents(MAINTENANCE_JSON_PATH, JSON.stringify(status, null, 2));
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };

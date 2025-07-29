@@ -1,4 +1,5 @@
-import { GitCommit, LogOut, User, Users } from 'lucide-react';
+import { LogOut, User, Users } from 'lucide-react';
+import Image from 'next/image';
 import { Button } from './ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -38,8 +39,14 @@ export default function Header() {
     <header className="bg-card border-b">
       <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
         <Link href="/dashboard" className="flex items-center gap-3">
-          <div className="p-2 bg-accent/20 rounded-lg">
-            <GitCommit className="h-6 w-6" style={{ color: 'hsl(var(--accent))' }}/>
+          <div className="relative h-8 w-8">
+            <Image 
+                src="https://github.com/ClassIsland/ClassIsland/raw/refs/heads/master/ClassIsland/Assets/AppLogo_AppLogo.svg" 
+                alt="HubQueue Logo"
+                fill
+                className="object-contain"
+                unoptimized
+            />
           </div>
           <h1 className="text-xl font-bold tracking-tight text-foreground">HubQueue</h1>
         </Link>

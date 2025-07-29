@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import Cookies from 'js-cookie';
-import { getUsers, saveUsers, StoredUser } from '@/services/webdav'; 
+import { getUsers, StoredUser, getMaintenanceStatus, saveUsers } from '@/services/webdav'; 
 
 interface User {
   username: string;
@@ -13,11 +13,13 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
+  isMaintenanceMode: boolean;
   login: (username: string, password_input: string) => Promise<boolean>;
   logout: () => void;
   register: (username: string, password_input: string) => Promise<{ success: boolean; message: string }>;
   isLoading: boolean;
   updateUserStatus: (username: string) => Promise<void>;
+  setMaintenanceMode: (isMaintenance: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -44,10 +46,15 @@ async function hashPassword(password: string): Promise<string> {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
 
   const verifyAndSetUser = async (username: string, hash: string) => {
     try {
-      const users = await getUsers();
+      const [users, maintenanceStatus] = await Promise.all([
+        getUsers(),
+        getMaintenanceStatus(),
+      ]);
+
       const foundUser = users.find(u => u.username === username && u.passwordHash === hash);
       if (foundUser) {
         const userData = { 
@@ -56,12 +63,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
           isTrusted: foundUser.isAdmin || foundUser.isTrusted 
         };
         setUser(userData);
+        setIsMaintenanceMode(maintenanceStatus.isMaintenance);
         return true;
       }
     } catch (error) {
       console.error("Failed to fetch user data during verification", error);
     }
-    // If verification fails for any reason, logout
     logout();
     return false;
   };
@@ -76,7 +83,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
             const sessionData: SessionData = JSON.parse(storedSession);
             if (sessionData.username && sessionData.hash) {
                 await verifyAndSetUser(sessionData.username, sessionData.hash);
+            } else {
+               // If cookie is invalid, check maintenance status for public view
+               const status = await getMaintenanceStatus();
+               setIsMaintenanceMode(status.isMaintenance);
             }
+          } else {
+             const status = await getMaintenanceStatus();
+             setIsMaintenanceMode(status.isMaintenance);
           }
       } catch (error) {
           console.error("Failed to process user from cookie", error);
@@ -117,6 +131,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const sessionData: SessionData = { username: foundUser.username, hash: foundUser.passwordHash };
         Cookies.set(USER_COOKIE_KEY, JSON.stringify(sessionData), { expires: 7 }); 
         setUser(userData);
+        // Also fetch maintenance status on login
+        const status = await getMaintenanceStatus();
+        setIsMaintenanceMode(status.isMaintenance);
         return true;
       }
       return false;
@@ -152,8 +169,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
             isTrusted,
         };
         
-        // This logic is a bit tricky with a file-based DB.
-        // We fetch again right before saving to minimize race conditions.
         const currentUsers = await getUsers();
         if (currentUsers.find(u => u.username === username)) {
             return { success: false, message: "该用户名刚刚被注册，请换一个。" };
@@ -167,6 +182,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
             const sessionData: SessionData = { username: newUser.username, hash: newUser.passwordHash };
             Cookies.set(USER_COOKIE_KEY, JSON.stringify(sessionData), { expires: 7 });
             setUser(userData);
+            const status = await getMaintenanceStatus();
+            setIsMaintenanceMode(status.isMaintenance);
             return { success: true, message: "注册成功！" };
         } else {
             return { success: false, message: error || "无法保存用户数据。" };
@@ -184,7 +201,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(null);
   };
 
-  const value = { user, login, logout, register, isLoading, updateUserStatus };
+  const value = { user, isMaintenanceMode, login, logout, register, isLoading, updateUserStatus, setMaintenanceMode: setIsMaintenanceMode };
 
   return (
     <AuthContext.Provider value={value}>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
@@ -5,13 +6,14 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import Header from "@/components/header";
 import { Skeleton } from "../ui/skeleton";
+import MaintenancePage from "../maintenance-page";
 
 export default function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isMaintenanceMode } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -34,6 +36,10 @@ export default function MainLayout({
             </main>
         </div>
     );
+  }
+
+  if (isMaintenanceMode && !user.isAdmin) {
+    return <MaintenancePage />;
   }
 
   return (

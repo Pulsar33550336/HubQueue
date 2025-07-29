@@ -3,13 +3,15 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { GitCommit, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function RegisterPage() {
   const [username, setUsername] = useState('');
@@ -50,8 +52,32 @@ export default function RegisterPage() {
     }
   };
   
-  if (isAuthLoading || user) {
-    return null; // Or a loading spinner, to prevent flashing the form
+  if (isAuthLoading || (!isAuthLoading && user)) {
+    return (
+        <div className="flex items-center justify-center min-h-screen bg-background">
+            <Card className="w-full max-w-sm">
+                <CardHeader className="text-center">
+                    <Skeleton className="w-24 h-10 mx-auto mb-4" />
+                    <Skeleton className="h-6 w-3/4 mx-auto" />
+                    <Skeleton className="h-4 w-1/2 mx-auto" />
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                        <Skeleton className="h-4 w-16" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                    <div className="space-y-2">
+                        <Skeleton className="h-4 w-16" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                </CardContent>
+                <CardFooter className="flex flex-col gap-4">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-4 w-48" />
+                </CardFooter>
+            </Card>
+        </div>
+     );
   }
 
   return (
@@ -59,8 +85,14 @@ export default function RegisterPage() {
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="p-2 bg-accent/20 rounded-lg">
-              <GitCommit className="h-7 w-7" style={{ color: 'hsl(var(--accent))' }} />
+            <div className="relative h-10 w-10">
+                <Image 
+                    src="https://raw.githubusercontent.com/ClassIsland/ClassIsland/master/ClassIsland/Assets/AppLogo_AppLogo.svg" 
+                    alt="HubQueue Logo"
+                    fill
+                    className="object-contain"
+                    unoptimized
+                />
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">HubQueue</h1>
           </div>
