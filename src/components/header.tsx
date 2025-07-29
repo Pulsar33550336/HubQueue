@@ -1,4 +1,4 @@
-import { LogOut, User, Users } from 'lucide-react';
+import { LogOut, Settings as SettingsIcon, User } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from './ui/button';
 import { useAuth } from '@/context/AuthContext';
@@ -24,8 +24,8 @@ export default function Header() {
     router.push('/login');
   }
   
-  const handleUserManagement = () => {
-    router.push('/users');
+  const handleSettings = () => {
+    router.push('/settings');
   }
 
   const getRoleLabel = () => {
@@ -78,9 +78,9 @@ export default function Header() {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {user.isAdmin && (
-                    <DropdownMenuItem onClick={handleUserManagement}>
-                      <Users className="mr-2 h-4 w-4" />
-                      <span>用户管理</span>
+                    <DropdownMenuItem onClick={handleSettings}>
+                      <SettingsIcon className="mr-2 h-4 w-4" />
+                      <span>设置</span>
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuItem onClick={handleLogout}>

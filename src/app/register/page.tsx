@@ -57,7 +57,12 @@ export default function RegisterPage() {
         <div className="flex items-center justify-center min-h-screen bg-background">
             <Card className="w-full max-w-sm">
                 <CardHeader className="text-center">
-                    <Skeleton className="w-24 h-10 mx-auto mb-4" />
+                    <div className="flex items-center justify-center gap-3 mb-4">
+                        <div className="relative h-10 w-10">
+                           <Skeleton className="h-10 w-10 rounded-full" />
+                        </div>
+                        <Skeleton className="h-7 w-28" />
+                    </div>
                     <Skeleton className="h-6 w-3/4 mx-auto" />
                     <Skeleton className="h-4 w-1/2 mx-auto" />
                 </CardHeader>

@@ -48,7 +48,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
 
-  const verifyAndSetUser = async (username: string, hash: string) => {
+  const verifyAndSetUser = async (username: string, hash: string): Promise<boolean> => {
     try {
       const [users, maintenanceStatus] = await Promise.all([
         getUsers(),
@@ -69,7 +69,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (error) {
       console.error("Failed to fetch user data during verification", error);
     }
-    logout();
+    // If verification fails, ensure user is logged out.
+    Cookies.remove(USER_COOKIE_KEY);
+    setUser(null);
     return false;
   };
 
@@ -84,33 +86,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
             if (sessionData.username && sessionData.hash) {
                 await verifyAndSetUser(sessionData.username, sessionData.hash);
             } else {
-               // If cookie is invalid, check maintenance status for public view
+               // If cookie is invalid, still check maintenance status for public view
                const status = await getMaintenanceStatus();
                setIsMaintenanceMode(status.isMaintenance);
+               setUser(null);
+               Cookies.remove(USER_COOKIE_KEY);
             }
           } else {
              const status = await getMaintenanceStatus();
              setIsMaintenanceMode(status.isMaintenance);
+             setUser(null);
           }
       } catch (error) {
           console.error("Failed to process user from cookie", error);
-          logout();
+          logout(); // This will clear cookie and user state
       } finally {
         setIsLoading(false);
       }
     };
 
     loadUserFromCookie();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const updateUserStatus = async (username: string) => {
     if (user && user.username === username) {
       const storedSession = Cookies.get(USER_COOKIE_KEY);
       if (storedSession) {
-        setIsLoading(true);
         const sessionData: SessionData = JSON.parse(storedSession);
+        // Just re-verify and set the user, don't trigger loading state if not necessary
         await verifyAndSetUser(sessionData.username, sessionData.hash);
-        setIsLoading(false);
       }
     }
   };
@@ -170,6 +175,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         };
         
         const currentUsers = await getUsers();
+        // Double-check in case of race condition
         if (currentUsers.find(u => u.username === username)) {
             return { success: false, message: "该用户名刚刚被注册，请换一个。" };
         }
