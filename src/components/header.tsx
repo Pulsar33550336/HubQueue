@@ -1,5 +1,4 @@
 import { LogOut, Settings as SettingsIcon, User } from 'lucide-react';
-import Image from 'next/image';
 import { Button } from './ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -13,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from './ui/avatar';
+import Logo from './logo';
 
 
 export default function Header() {
@@ -40,13 +40,7 @@ export default function Header() {
       <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
         <Link href="/dashboard" className="flex items-center gap-3">
           <div className="relative h-8 w-8">
-            <Image 
-                src="https://github.com/ClassIsland/ClassIsland/raw/refs/heads/master/ClassIsland/Assets/AppLogo_AppLogo.svg" 
-                alt="HubQueue Logo"
-                fill
-                className="object-contain"
-                unoptimized
-            />
+            <Logo width={32} height={32} />
           </div>
           <h1 className="text-xl font-bold tracking-tight text-foreground">HubQueue</h1>
         </Link>

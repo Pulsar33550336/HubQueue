@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import Logo from '@/components/logo';
 
 export default function RegisterPage() {
   const [username, setUsername] = useState('');
@@ -91,13 +91,7 @@ export default function RegisterPage() {
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-3 mb-4">
             <div className="relative h-10 w-10">
-                <Image 
-                    src="https://raw.githubusercontent.com/ClassIsland/ClassIsland/master/ClassIsland/Assets/AppLogo_AppLogo.svg" 
-                    alt="HubQueue Logo"
-                    fill
-                    className="object-contain"
-                    unoptimized
-                />
+                <Logo width={40} height={40} />
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">HubQueue</h1>
           </div>
