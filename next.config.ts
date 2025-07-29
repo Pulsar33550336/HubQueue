@@ -17,6 +17,8 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
+    // Allow images from any source since we are proxying from WebDAV
+    unoptimized: true,
   },
 };
 
