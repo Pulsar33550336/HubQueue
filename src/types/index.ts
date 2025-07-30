@@ -12,4 +12,5 @@ export type ImageFile = {
   isUploading?: boolean;
   createdAt?: number; // Timestamp for sorting
   completedAt?: number;
+  completionNotes?: string;
 };

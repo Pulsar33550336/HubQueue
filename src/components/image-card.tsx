@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Loader2, GitBranch, CheckCircle2, RefreshCcw, Trash2, User, Download, PartyPopper, Ban, ShieldQuestion, Undo2, ChevronsRight, ShieldAlert } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,6 +21,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { useAuth } from '@/context/AuthContext';
+import { Textarea } from './ui/textarea';
+import { Label } from './ui/label';
 
 
 interface ImageCardProps {
@@ -27,7 +30,7 @@ interface ImageCardProps {
   onClaim: (id: string) => void;
   onUnclaim: (id: string) => void;
   onUpload: (id: string) => void; 
-  onComplete: (id: string) => void;
+  onComplete: (id: string, notes: string) => void;
   onDelete: (id: string) => void;
 }
 
@@ -45,6 +48,9 @@ export function ImageCard({ image, onClaim, onUnclaim, onUpload, onComplete, onD
   const { id, name, url, status, claimedBy, uploadedBy, isUploading } = image;
   const config = statusConfig[status];
   const [isImageLoading, setIsImageLoading] = useState(true);
+  const [completionNotes, setCompletionNotes] = useState('');
+  const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false);
+
 
   const getAiHint = (imageName: string): string => {
     return imageName.split('.')[0].replace(/-/g, ' ').split(' ').slice(0, 2).join(' ');
@@ -73,6 +79,12 @@ export function ImageCard({ image, onClaim, onUnclaim, onUpload, onComplete, onD
         console.error("Download failed:", error);
     }
   };
+
+  const handleConfirmCompletion = () => {
+    onComplete(id, completionNotes);
+    setIsCompleteDialogOpen(false);
+    setCompletionNotes('');
+  }
   
   const isClaimedByCurrentUser = status === 'in-progress' && claimedBy === user?.username;
   const isClaimedByOther = status === 'in-progress' && claimedBy && claimedBy !== user?.username;
@@ -142,26 +154,38 @@ export function ImageCard({ image, onClaim, onUnclaim, onUpload, onComplete, onD
                                <Undo2 className="mr-2 h-4 w-4" />
                                 放回
                             </Button>
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
+                             <Dialog open={isCompleteDialogOpen} onOpenChange={setIsCompleteDialogOpen}>
+                                <DialogTrigger asChild>
                                     <Button size="sm">
                                         <PartyPopper className="mr-2 h-4 w-4" />
                                         完成
                                     </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>标记为完成？</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                    这将把任务 <span className="font-semibold">{name}</span> 标记为完成。
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>取消</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => onComplete(id)}>确认</AlertDialogAction>
-                                </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
+                                </DialogTrigger>
+                                <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>标记为完成？</DialogTitle>
+                                    <DialogDescription>
+                                    即将把任务 <span className="font-semibold">{name}</span> 标记为完成。您可以选择留下备注。
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="py-4">
+                                  <Label htmlFor="completion-notes">备注 (可选)</Label>
+                                  <Textarea 
+                                    id="completion-notes"
+                                    placeholder="输入您的备注..."
+                                    value={completionNotes}
+                                    onChange={(e) => setCompletionNotes(e.target.value)}
+                                    className="mt-2"
+                                  />
+                                </div>
+                                <DialogFooter>
+                                    <DialogClose asChild>
+                                      <Button variant="outline">取消</Button>
+                                    </DialogClose>
+                                    <Button onClick={handleConfirmCompletion}>确认完成</Button>
+                                </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
                         </div>
                     )}
                     {isClaimedByOther && (

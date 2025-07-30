@@ -240,7 +240,7 @@ export default function Dashboard() {
     }
   };
   
-  const handleCompleteImage = async (id: string) => {
+  const handleCompleteImage = async (id: string, notes: string) => {
     if (!user) return;
     const imageToComplete = images.find(img => img.id === id);
     if (!imageToComplete) return;
@@ -262,6 +262,7 @@ export default function Dashboard() {
             status: 'completed',
             completedBy: user.username,
             completedAt: Date.now(),
+            completionNotes: notes,
         };
 
         const updatedImages = currentImages.filter(img => img.id !== id);
@@ -384,5 +385,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
-    
