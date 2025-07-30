@@ -15,7 +15,7 @@ interface ImageQueueProps {
   onClaim: (id: string) => void;
   onUnclaim: (id: string) => void;
   onUpload: (id: string) => void;
-  onComplete: (id: string) => void;
+  onComplete: (id: string, notes: string) => void;
   onDelete: (id: string) => void;
   isSyncing: boolean;
 }

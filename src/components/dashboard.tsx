@@ -6,7 +6,7 @@ import type { ImageFile } from '@/types';
 import { ImageUploader } from './image-uploader';
 import { ImageQueue } from './image-queue';
 import { useToast } from "@/hooks/use-toast";
-import { getImageList, saveImageList, deleteWebdavFile, getHistoryList, saveHistoryList, cleanupOrphanedFiles } from '@/services/webdav';
+import { getImageList, saveImageList, getHistoryList, saveHistoryList } from '@/services/webdav';
 import { Skeleton } from './ui/skeleton';
 import { RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -83,8 +83,6 @@ export default function Dashboard() {
   useEffect(() => {
     const initialFetch = async () => {
       setIsLoading(true);
-      // Run cleanup first, but don't block the UI for it.
-      cleanupOrphanedFiles().catch(err => console.error("Background cleanup failed:", err));
       await fetchImages(false);
       setIsLoading(false);
       // Set initial load to false after a short delay to allow the first render to complete
@@ -93,6 +91,7 @@ export default function Dashboard() {
       }, 100);
     };
     initialFetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
   useEffect(() => {
@@ -250,18 +249,10 @@ export default function Dashboard() {
     setIsSyncing(true);
 
     try {
-        // First, delete the file from WebDAV storage.
-        const { success: deleteSuccess, error: deleteError } = await deleteWebdavFile(imageToComplete.webdavPath);
-        
-        if (!deleteSuccess) {
-           // If the file is already deleted, we can proceed. Otherwise, throw error.
-            if (deleteError && !deleteError.includes('404')) {
-                 throw new Error(deleteError || `无法从存储中删除文件。`);
-            }
-        }
-        
-        // If file deletion is successful (or file was already gone), update the lists.
-        const [currentImages, currentHistory] = await Promise.all([getImageList(), getHistoryList()]);
+        const [currentImages, currentHistory] = await Promise.all([
+            getImageList(), 
+            getHistoryList()
+        ]);
         
         const completedImageRecord: ImageFile = {
             ...imageToComplete,
@@ -304,27 +295,16 @@ export default function Dashboard() {
   const handleDeleteImage = async (id: string) => {
     const imageToDelete = images.find(img => img.id === id);
     if (!imageToDelete) return;
-
     setIsSyncing(true);
-
     try {
-        const { success: deleteSuccess, error: deleteError } = await deleteWebdavFile(imageToDelete.webdavPath);
-        if (!deleteSuccess) {
-            // Allow continuing if file not found, otherwise throw
-            if (deleteError && !deleteError.includes('404')) {
-                throw new Error(deleteError || `无法从存储中删除文件。`);
-            }
-        }
-
         const currentImages = await getImageList();
         const updatedImages = currentImages.filter(img => img.id !== id);
-
         const { success: saveSuccess, error: saveError } = await saveImageList(updatedImages);
         if(saveSuccess) {
             setImages(updatedImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
             toast({
-                title: "图片已删除",
-                description: `${imageToDelete.name} 已被移除。`,
+                title: "图片已从索引中删除",
+                description: `${imageToDelete.name} 的记录已被移除。`,
             });
         } else {
             throw new Error(saveError || "无法更新图片列表。");
@@ -394,7 +374,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
-    
-
-    

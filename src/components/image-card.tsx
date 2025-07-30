@@ -111,7 +111,30 @@ export function ImageCard({ image, onClaim, onUnclaim, onUpload, onComplete, onD
       <div className="p-4 flex-1 flex flex-col">
         <div className="flex justify-between items-start mb-2 gap-2">
             <h3 className="font-semibold text-sm leading-snug break-all text-foreground">{name}</h3>
-            <Badge variant={config.variant} className="flex-shrink-0">{config.label}</Badge>
+            <div className="flex items-center gap-2">
+              {canUserDelete && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>确认从索引中删除？</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        此操作将从队列中移除 <span className="font-semibold">{name}</span> 的记录。服务器上的原始文件将不会被删除。此操作无法撤销。
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>取消</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => onDelete(id)}>确认删除</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+              <Badge variant={config.variant} className="flex-shrink-0">{config.label}</Badge>
+            </div>
         </div>
         
         <div className="flex items-center text-xs text-muted-foreground mb-4 gap-4">
@@ -217,38 +240,6 @@ export function ImageCard({ image, onClaim, onUnclaim, onUpload, onComplete, onD
                         </Button>
                     )}
                 </div>
-                
-                {canUserDelete && status !== 'in-progress' && (
-                  <AlertDialog>
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
-                                    <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive"/>
-                                    <span className="sr-only">删除</span>
-                                </Button>
-                              </AlertDialogTrigger>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>从队列中移除</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>您确定吗？</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          此操作无法撤销。这将从服务器上永久删除图片 <span className="font-semibold">{name}</span>。
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>取消</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => onDelete(id)}>继续</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
             </div>
         </CardFooter>
       </div>

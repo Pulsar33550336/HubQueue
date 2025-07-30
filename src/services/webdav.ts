@@ -11,6 +11,15 @@ const USERS_JSON_PATH = '/users.json';
 const MAINTENANCE_JSON_PATH = '/maintenance.json';
 const UPLOADS_DIR = '/uploads';
 
+function getClient(): WebDAVClient {
+  if (!webdavConfig.url || !webdavConfig.username || !webdavConfig.password) {
+    throw new Error('WebDAV configuration is incomplete. Please check your .env file.');
+  }
+  return createClient(webdavConfig.url, {
+    username: webdavConfig.username,
+    password: webdavConfig.password,
+  });
+}
 
 export type UserRole = 'admin' | 'trusted' | 'user' | 'banned';
 
@@ -29,16 +38,6 @@ interface LegacyStoredUser {
   isBanned?: boolean;
 }
 
-
-function getClient(): WebDAVClient {
-  if (!webdavConfig.url || !webdavConfig.username || !webdavConfig.password) {
-    throw new Error('WebDAV configuration is incomplete. Please check your .env file.');
-  }
-  return createClient(webdavConfig.url, {
-    username: webdavConfig.username,
-    password: webdavConfig.password,
-  });
-}
 
 function migrateUser(user: LegacyStoredUser | StoredUser): StoredUser {
     if ('role' in user) {
@@ -153,36 +152,6 @@ export async function deleteWebdavFile(path: string): Promise<{success: boolean,
     }
 }
 
-export async function cleanupOrphanedFiles(): Promise<void> {
-    const client = getClient();
-    try {
-        if (!(await client.exists(UPLOADS_DIR))) {
-            console.log("Uploads directory does not exist, skipping cleanup.");
-            return;
-        }
-
-        const [directoryContents, images] = await Promise.all([
-            client.getDirectoryContents(UPLOADS_DIR),
-            getImageList()
-        ]);
-
-        const knownImagePaths = new Set(images.map(img => img.webdavPath));
-
-        const filesInUploads = (directoryContents as FileStat[]).filter(item => item.type === 'file');
-
-        for (const file of filesInUploads) {
-            if (!knownImagePaths.has(file.filename)) {
-                console.log(`Deleting orphaned file: ${file.filename}`);
-                await deleteWebdavFile(file.filename);
-            }
-        }
-    } catch (error: any) {
-        console.error("Error during orphaned file cleanup:", error.message);
-        // We don't re-throw, as this is a background task and shouldn't crash the main flow.
-    }
-}
-
-
 export async function getUsers(): Promise<StoredUser[]> {
   const client = getClient();
   try {
@@ -238,5 +207,3 @@ export async function saveMaintenanceStatus(status: { isMaintenance: boolean }):
     return { success: false, error: error.message };
   }
 }
-
-    
