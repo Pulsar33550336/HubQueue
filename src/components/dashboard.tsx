@@ -278,7 +278,7 @@ export default function Dashboard() {
             setHistory(updatedHistory);
             toast({
                 title: "任务已完成",
-                description: `${imageToComplete.name} 已被移至历史记录。`,
+                description: "干得漂亮！下一个任务在等着你。",
             });
         } else {
             throw new Error(saveImagesResult.error || saveHistoryResult.error || "无法更新列表。文件已被删除，但记录可能不一致。");
