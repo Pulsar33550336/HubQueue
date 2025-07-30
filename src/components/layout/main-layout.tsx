@@ -1,7 +1,8 @@
+
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import Header from "@/components/header";
 import { Skeleton } from "../ui/skeleton";
@@ -14,12 +15,14 @@ export default function MainLayout({
 }) {
   const { user, isLoading, isMaintenanceMode } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!isLoading && !user) {
-      router.push('/login');
+      const callbackUrl = pathname;
+      router.push(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
     }
-  }, [user, isLoading, router]);
+  }, [user, isLoading, router, pathname]);
 
   if (isLoading) {
     return (
