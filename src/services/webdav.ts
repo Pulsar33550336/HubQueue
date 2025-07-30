@@ -91,7 +91,26 @@ export async function getImageList(): Promise<ImageFile[]> {
   try {
     if (await client.exists(IMAGES_JSON_PATH)) {
       const content = await client.getFileContents(IMAGES_JSON_PATH, { format: 'text' });
-      return JSON.parse(content as string);
+      let images: ImageFile[] = JSON.parse(content as string);
+
+      const completedImages = images.filter(img => img.status === 'completed');
+      if (completedImages.length > 0) {
+        console.log(`Migrating ${completedImages.length} completed images from images.json to history.json`);
+        const activeImages = images.filter(img => img.status !== 'completed');
+        
+        const history = await getHistoryList();
+        const updatedHistory = [...completedImages, ...history];
+
+        // Perform migration
+        await Promise.all([
+          saveImageList(activeImages),
+          saveHistoryList(updatedHistory)
+        ]);
+
+        return activeImages;
+      }
+      
+      return images;
     }
     return [];
   } catch (error: any) {
@@ -103,7 +122,8 @@ export async function getImageList(): Promise<ImageFile[]> {
 export async function saveImageList(images: ImageFile[]): Promise<{success: boolean, error?: string}> {
   const client = getClient();
   try {
-    await client.putFileContents(IMAGES_JSON_PATH, JSON.stringify(images, null, 2));
+    const activeImages = images.filter(img => img.status !== 'completed');
+    await client.putFileContents(IMAGES_JSON_PATH, JSON.stringify(activeImages, null, 2));
     console.log('Image list saved successfully to WebDAV.');
     return { success: true };
   } catch (error: any) {

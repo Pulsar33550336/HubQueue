@@ -34,7 +34,9 @@ export default function Dashboard() {
     }
     try {
       const [imageList, historyList] = await Promise.all([getImageList(), getHistoryList()]);
-      const migratedImageList = imageList.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' }));
+      const migratedImageList = imageList
+        .filter(img => img.status !== 'completed') // Ensure completed images are not displayed from the queue
+        .map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' }));
       
       if (document.visibilityState === 'visible' && !isInitialLoad.current) {
         const oldImageIds = new Set(imagesRef.current.map(img => img.id));
