@@ -10,12 +10,23 @@ const HISTORY_JSON_PATH = '/history.json';
 const USERS_JSON_PATH = '/users.json';
 const MAINTENANCE_JSON_PATH = '/maintenance.json';
 
+export type UserRole = 'admin' | 'trusted' | 'user' | 'banned';
+
 export interface StoredUser {
   username: string;
+  passwordHash: string;
+  role: UserRole;
+}
+
+// This is the old format, kept for migration purposes.
+interface LegacyStoredUser {
+  username: string;
+  passwordHash: string;
   isAdmin: boolean;
   isTrusted: boolean;
-  passwordHash: string;
+  isBanned?: boolean;
 }
+
 
 function getClient(): WebDAVClient {
   if (!webdavConfig.url || !webdavConfig.username || !webdavConfig.password) {
@@ -26,6 +37,29 @@ function getClient(): WebDAVClient {
     password: webdavConfig.password,
   });
 }
+
+function migrateUser(user: LegacyStoredUser | StoredUser): StoredUser {
+    if ('role' in user) {
+        return user; // Already new format
+    }
+    // Migration logic for old format
+    const legacyUser = user as LegacyStoredUser;
+    let role: UserRole = 'user';
+    if (legacyUser.isAdmin) {
+        role = 'admin';
+    } else if (legacyUser.isTrusted) {
+        role = 'trusted';
+    }
+    if (legacyUser.isBanned) {
+        role = 'banned';
+    }
+    return {
+        username: legacyUser.username,
+        passwordHash: legacyUser.passwordHash,
+        role: role
+    };
+}
+
 
 export async function uploadToWebdav(fileName: string, dataUrl: string): Promise<{success: boolean, path?: string, error?: string}> {
   const client = getClient();
@@ -122,10 +156,20 @@ export async function getUsers(): Promise<StoredUser[]> {
   try {
     if (await client.exists(USERS_JSON_PATH)) {
       const content = await client.getFileContents(USERS_JSON_PATH, { format: 'text' });
-      return JSON.parse(content as string);
+      const users = JSON.parse(content as string) as (StoredUser | LegacyStoredUser)[];
+      // Check if migration is needed
+      const needsMigration = users.some(u => !('role' in u));
+      const migratedUsers = users.map(migrateUser);
+
+      // If migration occurred, save the updated file
+      if (needsMigration) {
+        await saveUsers(migratedUsers);
+      }
+      return migratedUsers;
     }
     return [];
   } catch (error) {
+    console.error("Failed to get or migrate users:", error);
     return [];
   }
 }

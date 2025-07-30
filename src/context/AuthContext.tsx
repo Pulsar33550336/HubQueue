@@ -3,10 +3,11 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import Cookies from 'js-cookie';
-import { getUsers, StoredUser, getMaintenanceStatus, saveUsers } from '@/services/webdav'; 
+import { getUsers, StoredUser, getMaintenanceStatus, saveUsers, UserRole } from '@/services/webdav'; 
 
 interface User {
   username: string;
+  role: UserRole;
   isAdmin: boolean;
   isTrusted: boolean;
 }
@@ -14,7 +15,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   isMaintenanceMode: boolean;
-  login: (username: string, password_input: string) => Promise<boolean>;
+  login: (username: string, password_input: string) => Promise<{success: boolean, message?: string}>;
   logout: () => void;
   register: (username: string, password_input: string) => Promise<{ success: boolean; message: string }>;
   isLoading: boolean;
@@ -57,10 +58,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       const foundUser = users.find(u => u.username === username && u.passwordHash === hash);
       if (foundUser) {
+        if (foundUser.role === 'banned') {
+           Cookies.remove(USER_COOKIE_KEY);
+           setUser(null);
+           return false;
+        }
+
         const userData = { 
           username: foundUser.username, 
-          isAdmin: foundUser.isAdmin, 
-          isTrusted: foundUser.isAdmin || foundUser.isTrusted 
+          role: foundUser.role,
+          isAdmin: foundUser.role === 'admin', 
+          isTrusted: foundUser.role === 'admin' || foundUser.role === 'trusted', 
         };
         setUser(userData);
         setIsMaintenanceMode(maintenanceStatus.isMaintenance);
@@ -120,7 +128,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
   
-  const login = async (username: string, password_input: string): Promise<boolean> => {
+  const login = async (username: string, password_input: string): Promise<{success: boolean, message?: string}> => {
     setIsLoading(true);
     try {
       const users = await getUsers();
@@ -128,10 +136,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const foundUser = users.find(u => u.username === username && u.passwordHash === passwordHash);
 
       if (foundUser) {
+        if (foundUser.role === 'banned') {
+            return { success: false, message: '您的账户已被封禁。' };
+        }
+
         const userData = { 
           username: foundUser.username, 
-          isAdmin: foundUser.isAdmin, 
-          isTrusted: foundUser.isAdmin || foundUser.isTrusted 
+          role: foundUser.role,
+          isAdmin: foundUser.role === 'admin',
+          isTrusted: foundUser.role === 'admin' || foundUser.role === 'trusted'
         };
         const sessionData: SessionData = { username: foundUser.username, hash: foundUser.passwordHash };
         Cookies.set(USER_COOKIE_KEY, JSON.stringify(sessionData), { expires: 7 }); 
@@ -139,12 +152,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Also fetch maintenance status on login
         const status = await getMaintenanceStatus();
         setIsMaintenanceMode(status.isMaintenance);
-        return true;
+        return { success: true };
       }
-      return false;
+      return { success: false, message: '无效的用户名或密码。' };
     } catch (error) {
       console.error("Login failed:", error);
-      return false;
+      return { success: false, message: '登录时发生错误。' };
     } finally {
       setIsLoading(false);
     }
@@ -163,15 +176,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
             return { success: false, message: "该用户名已存在。" };
         }
 
-        const isAdmin = users.length === 0;
-        const isTrusted = isAdmin;
+        const role: UserRole = users.length === 0 ? 'admin' : 'user';
         const passwordHash = await hashPassword(password_input);
 
         const newUser: StoredUser = {
             username,
             passwordHash,
-            isAdmin,
-            isTrusted,
+            role,
         };
         
         const currentUsers = await getUsers();
@@ -184,7 +195,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const { success, error } = await saveUsers(updatedUsers);
 
         if (success) {
-            const userData = { username: newUser.username, isAdmin: newUser.isAdmin, isTrusted: newUser.isTrusted };
+            const userData = { 
+                username: newUser.username,
+                role: newUser.role,
+                isAdmin: newUser.role === 'admin',
+                isTrusted: newUser.role === 'admin' || newUser.role === 'trusted'
+            };
             const sessionData: SessionData = { username: newUser.username, hash: newUser.passwordHash };
             Cookies.set(USER_COOKIE_KEY, JSON.stringify(sessionData), { expires: 7 });
             setUser(userData);

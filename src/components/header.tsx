@@ -26,9 +26,13 @@ export default function Header() {
 
   const getRoleLabel = () => {
     if (!user) return '';
-    if (user.isAdmin) return '管理员';
-    if (user.isTrusted) return '可信用户';
-    return '用户';
+    switch (user.role) {
+      case 'admin': return '管理员';
+      case 'trusted': return '可信用户';
+      case 'user': return '用户';
+      case 'banned': return '已封禁';
+      default: return '用户';
+    }
   };
 
   return (
@@ -71,12 +75,12 @@ export default function Header() {
                       <SettingsIcon className="mr-2 h-4 w-4" />
                       <span>个人设置</span>
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push('/history')}>
-                      <History className="mr-2 h-4 w-4" />
-                      <span>历史记录</span>
-                    </DropdownMenuItem>
                   {user.isAdmin && (
                     <>
+                      <DropdownMenuItem onClick={() => router.push('/history')}>
+                        <History className="mr-2 h-4 w-4" />
+                        <span>历史记录</span>
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => router.push('/users')}>
                         <Users className="mr-2 h-4 w-4" />
                         <span>用户管理</span>

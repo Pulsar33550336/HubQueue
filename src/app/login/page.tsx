@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -30,14 +31,14 @@ export default function LoginPage() {
 
   const handleLogin = async () => {
     setIsLoggingIn(true);
-    const success = await login(username, password);
-    if (success) {
+    const result = await login(username, password);
+    if (result.success) {
       router.push('/dashboard');
     } else {
       toast({
         variant: "destructive",
         title: "登录失败",
-        description: "无效的用户名或密码。",
+        description: result.message || "无效的用户名或密码。",
       });
     }
     setIsLoggingIn(false);

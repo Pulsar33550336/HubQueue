@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { getHistoryList, ImageFile } from '@/services/webdav';
+import { getHistoryList, getImageList, getUsers, ImageFile, StoredUser } from '@/services/webdav';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -13,31 +13,41 @@ import { format } from 'date-fns';
 export default function History() {
   const { user, isLoading: isAuthLoading } = useAuth();
   const [history, setHistory] = useState<ImageFile[]>([]);
+  const [users, setUsers] = useState<StoredUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    if (!isAuthLoading && !user) {
-      router.push('/login');
+    if (!isAuthLoading) {
+      if (!user) {
+        router.push('/login');
+      } else if (!user.isAdmin) {
+        router.push('/dashboard');
+      }
     }
   }, [user, isAuthLoading, router]);
 
   useEffect(() => {
-    async function fetchHistory() {
-      if (user) {
+    async function fetchData() {
+      if (user?.isAdmin) {
         setIsLoading(true);
         try {
-           const historyList = await getHistoryList();
+           const [historyList, userList] = await Promise.all([getHistoryList(), getUsers()]);
            setHistory(historyList);
+           setUsers(userList);
         } catch (error) {
-            console.error("Failed to fetch history", error);
+            console.error("Failed to fetch data", error);
         } finally {
           setIsLoading(false);
         }
       }
     };
-    fetchHistory();
+    fetchData();
   }, [user]);
+
+  const isUserDeleted = (username: string) => {
+    return !users.some(u => u.username === username);
+  };
 
   const renderSkeleton = () => (
      <div className="container mx-auto py-8 px-4 md:px-6">
@@ -72,12 +82,8 @@ export default function History() {
     </div>
   );
 
-  if (isAuthLoading || isLoading) {
+  if (isAuthLoading || isLoading || !user?.isAdmin) {
     return renderSkeleton();
-  }
-
-  if (!user) {
-    return null;
   }
 
   return (
@@ -102,8 +108,14 @@ export default function History() {
                     {history.length > 0 ? history.map((item) => (
                         <TableRow key={item.id}>
                             <TableCell className="font-medium">{item.name}</TableCell>
-                            <TableCell>{item.uploadedBy}</TableCell>
-                            <TableCell>{item.completedBy}</TableCell>
+                            <TableCell>
+                                {item.uploadedBy}
+                                {isUserDeleted(item.uploadedBy) && <span className="text-xs text-muted-foreground ml-1">(已删除)</span>}
+                            </TableCell>
+                            <TableCell>
+                                {item.completedBy}
+                                {item.completedBy && isUserDeleted(item.completedBy) && <span className="text-xs text-muted-foreground ml-1">(已删除)</span>}
+                            </TableCell>
                             <TableCell>
                                 {item.completedAt ? format(new Date(item.completedAt), 'yyyy-MM-dd HH:mm:ss') : 'N/A'}
                             </TableCell>

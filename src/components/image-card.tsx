@@ -6,7 +6,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Loader2, GitBranch, CheckCircle2, RefreshCcw, Trash2, User, Download, PartyPopper, Ban, ShieldQuestion, Undo2, ChevronsRight } from 'lucide-react';
+import { Loader2, GitBranch, CheckCircle2, RefreshCcw, Trash2, User, Download, PartyPopper, Ban, ShieldQuestion, Undo2, ChevronsRight, ShieldAlert } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import {
   AlertDialog,
@@ -120,7 +120,7 @@ export function ImageCard({ image, onClaim, onUnclaim, onUpload, onComplete, onD
             <div className="w-full flex items-center justify-between gap-2">
                 <div className='flex-1'>
                     {status === 'uploaded' && (
-                        (user?.isAdmin || user?.isTrusted) ? (
+                        (user?.isTrusted) ? (
                           <Button onClick={() => onClaim(id)} size="sm" className="w-full">
                               <GitBranch className="mr-2 h-4 w-4"/>
                               认领任务
@@ -165,10 +165,17 @@ export function ImageCard({ image, onClaim, onUnclaim, onUpload, onComplete, onD
                         </div>
                     )}
                     {isClaimedByOther && (
-                        <Button size="sm" className="w-full" disabled>
-                            <ChevronsRight className="mr-2 h-4 w-4"/>
-                            正在处理
-                        </Button>
+                        user?.isAdmin ? (
+                            <Button onClick={() => onUnclaim(id)} size="sm" variant="destructive" className="w-full">
+                                <ShieldAlert className="mr-2 h-4 w-4" />
+                                强制放回
+                            </Button>
+                        ) : (
+                            <Button size="sm" className="w-full" disabled>
+                                <ChevronsRight className="mr-2 h-4 w-4"/>
+                                正在处理
+                            </Button>
+                        )
                     )}
                      {status === 'queued' && (
                         <div className="flex items-center justify-center text-sm font-medium text-muted-foreground">

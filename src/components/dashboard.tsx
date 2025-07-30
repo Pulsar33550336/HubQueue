@@ -158,7 +158,7 @@ export default function Dashboard() {
       const currentImages = await getImageList();
       const imageToUnclaim = currentImages.find(img => img.id === id);
 
-      if (imageToUnclaim && imageToUnclaim.claimedBy === user.username) {
+      if (imageToUnclaim && (imageToUnclaim.claimedBy === user.username || user.isAdmin)) {
         const updatedImages = currentImages.map(img =>
           img.id === id ? { ...img, status: 'uploaded', claimedBy: undefined } : img
         );
@@ -178,7 +178,7 @@ export default function Dashboard() {
         toast({
           variant: "destructive",
           title: "操作失败",
-          description: "您无法放回不属于您的任务。",
+          description: "您没有权限放回此任务。",
         });
         setImages(currentImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
       }
