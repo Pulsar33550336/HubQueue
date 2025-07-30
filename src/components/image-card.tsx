@@ -92,7 +92,7 @@ export function ImageCard({ image, onClaim, onUnclaim, onUpload, onComplete, onD
   const canUserDelete = user?.isAdmin || user?.username === uploadedBy;
 
   return (
-    <Card className="flex flex-col overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300 rounded-lg">
+    <Card className="flex flex-col overflow-hidden transition-colors duration-300 rounded-lg">
       <CardContent className="p-0">
         <div className="aspect-video relative bg-muted">
           {isImageLoading && <Skeleton className="absolute inset-0 w-full h-full" />}

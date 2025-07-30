@@ -175,7 +175,7 @@ export function ImageUploader({ onImageUploaded }: ImageUploaderProps) {
 
   return (
     <>
-      <Card className="mb-8 shadow-sm">
+      <Card className="mb-8">
         <CardHeader>
           <CardTitle>上传新图片</CardTitle>
           <CardDescription>点击、拖拽或直接从剪贴板粘贴一个 JPG/PNG 图片到页面以上传。</CardDescription>

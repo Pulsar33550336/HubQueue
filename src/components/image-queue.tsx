@@ -42,18 +42,18 @@ export function ImageQueue({ images, stats, onClaim, onUnclaim, onUpload, onComp
                     <User className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-around">
+                        <div className="flex flex-col items-center gap-2">
                             <Upload className="h-5 w-5 text-primary" />
                             <div>
-                                <p className="text-2xl font-bold">{stats.userUploaded}</p>
+                                <p className="text-2xl font-bold text-center">{stats.userUploaded}</p>
                                 <p className="text-xs text-muted-foreground">上传</p>
                             </div>
                         </div>
-                         <div className="flex items-center gap-2">
+                         <div className="flex flex-col items-center gap-2">
                             <CheckCircle className="h-5 w-5 text-green-500" />
                             <div>
-                                <p className="text-2xl font-bold">{stats.userCompleted}</p>
+                                <p className="text-2xl font-bold text-center">{stats.userCompleted}</p>
                                 <p className="text-xs text-muted-foreground">完成</p>
                             </div>
                         </div>
@@ -66,18 +66,18 @@ export function ImageQueue({ images, stats, onClaim, onUnclaim, onUpload, onComp
                     <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    <div className="flex items-center gap-6">
-                       <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-around">
+                       <div className="flex flex-col items-center gap-2">
                             <Upload className="h-5 w-5 text-muted-foreground" />
                             <div>
-                                <p className="text-2xl font-bold">{stats.totalUploaded}</p>
+                                <p className="text-2xl font-bold text-center">{stats.totalUploaded}</p>
                                 <p className="text-xs text-muted-foreground">总上传</p>
                             </div>
                         </div>
-                         <div className="flex items-center gap-2">
+                         <div className="flex flex-col items-center gap-2">
                             <CheckCircle className="h-5 w-5 text-muted-foreground" />
                             <div>
-                                <p className="text-2xl font-bold">{stats.totalCompleted}</p>
+                                <p className="text-2xl font-bold text-center">{stats.totalCompleted}</p>
                                 <p className="text-xs text-muted-foreground">总完成</p>
                             </div>
                         </div>

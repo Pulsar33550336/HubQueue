@@ -1,8 +1,9 @@
-import { LogOut, Settings as SettingsIcon, User, Users, Wrench, BarChart, History } from 'lucide-react';
+import { LogOut, Settings as SettingsIcon, User, Users, Wrench, BarChart, History, Sun, Moon, Laptop } from 'lucide-react';
 import { Button } from './ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useTheme } from "next-themes"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,6 +11,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from './ui/avatar';
 import Logo from './logo';
@@ -17,6 +21,7 @@ import Logo from './logo';
 
 export default function Header() {
   const { user, logout } = useAuth();
+  const { setTheme } = useTheme();
   const router = useRouter();
 
   const handleLogout = () => {
@@ -75,6 +80,27 @@ export default function Header() {
                       <SettingsIcon className="mr-2 h-4 w-4" />
                       <span>个人设置</span>
                     </DropdownMenuItem>
+                   <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <Sun className="mr-2 h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                      <Moon className="absolute mr-2 h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                      <span>外观主题</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      <DropdownMenuItem onClick={() => setTheme("light")}>
+                        <Sun className="mr-2 h-4 w-4" />
+                        <span>浅色</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setTheme("dark")}>
+                        <Moon className="mr-2 h-4 w-4" />
+                        <span>深色</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setTheme("system")}>
+                        <Laptop className="mr-2 h-4 w-4" />
+                        <span>系统</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
                   {user.isAdmin && (
                     <>
                       <DropdownMenuItem onClick={() => router.push('/history')}>
