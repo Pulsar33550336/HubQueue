@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import Image from 'next/image';
 import { UploadCloud, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -54,7 +54,7 @@ export function ImageUploader({ onImageUploaded }: ImageUploaderProps) {
   }
 
   const processFile = (file: File) => {
-    if (!handleFileValidation(file)) return;
+    if (!handleFileValidation(file) || isUploading) return;
     
     setSelectedFile(file);
     setCustomFileName(file.name.substring(0, file.name.lastIndexOf('.')) || file.name);
@@ -106,8 +106,8 @@ export function ImageUploader({ onImageUploaded }: ImageUploaderProps) {
     setIsUploading(true);
     setIsDialogOpen(false);
     
-    const fileExtension = selectedFile.name.split('.').pop();
-    const finalFileName = `${customFileName}.${fileExtension}`;
+    const fileExtension = selectedFile.name.split('.').pop() || 'png';
+    const finalFileName = `${customFileName.trim()}.${fileExtension}`;
     
     try {
         const reader = new FileReader();
@@ -148,12 +148,37 @@ export function ImageUploader({ onImageUploaded }: ImageUploaderProps) {
     }
   };
 
+  useEffect(() => {
+    const handlePaste = (event: ClipboardEvent) => {
+      const items = event.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            processFile(file);
+            // Prevent the default paste action
+            event.preventDefault(); 
+            break;
+          }
+        }
+      }
+    };
+
+    document.addEventListener('paste', handlePaste);
+    return () => {
+      document.removeEventListener('paste', handlePaste);
+    };
+  }, []);
+
+
   return (
     <>
       <Card className="mb-8 shadow-sm">
         <CardHeader>
           <CardTitle>上传新图片</CardTitle>
-          <CardDescription>点击或拖拽一个 JPG/PNG 图片到下方区域以上传。</CardDescription>
+          <CardDescription>点击、拖拽或直接从剪贴板粘贴一个 JPG/PNG 图片到页面以上传。</CardDescription>
         </CardHeader>
         <CardContent>
           <input
@@ -187,7 +212,7 @@ export function ImageUploader({ onImageUploaded }: ImageUploaderProps) {
               <>
                 <UploadCloud className="w-12 h-12 text-muted-foreground mb-4" />
                 <p className="font-semibold mb-1">点击或拖拽以上传图片</p>
-                <p className="text-muted-foreground text-sm">支持 PNG, JPG 格式</p>
+                <p className="text-muted-foreground text-sm">支持 PNG, JPG 格式，或直接粘贴</p>
               </>
             )}
           </div>
