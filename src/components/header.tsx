@@ -1,4 +1,4 @@
-import { LogOut, Settings as SettingsIcon, User, Users, Wrench, BarChart } from 'lucide-react';
+import { LogOut, Settings as SettingsIcon, User, Users, Wrench, BarChart, History } from 'lucide-react';
 import { Button } from './ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -70,6 +70,10 @@ export default function Header() {
                    <DropdownMenuItem onClick={() => router.push('/settings')}>
                       <SettingsIcon className="mr-2 h-4 w-4" />
                       <span>个人设置</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/history')}>
+                      <History className="mr-2 h-4 w-4" />
+                      <span>历史记录</span>
                     </DropdownMenuItem>
                   {user.isAdmin && (
                     <>

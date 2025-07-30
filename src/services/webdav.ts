@@ -6,6 +6,7 @@ import { webdavConfig } from '@/config/webdav';
 import type { ImageFile } from '@/types';
 
 const IMAGES_JSON_PATH = '/images.json';
+const HISTORY_JSON_PATH = '/history.json';
 const USERS_JSON_PATH = '/users.json';
 const MAINTENANCE_JSON_PATH = '/maintenance.json';
 
@@ -73,6 +74,32 @@ export async function saveImageList(images: ImageFile[]): Promise<{success: bool
     return { success: true };
   } catch (error: any) {
     console.error('Failed to save image list to WebDAV', error);
+    return { success: false, error: error.message || 'An unknown error occurred during save.' };
+  }
+}
+
+export async function getHistoryList(): Promise<ImageFile[]> {
+  const client = getClient();
+  try {
+    if (await client.exists(HISTORY_JSON_PATH)) {
+      const content = await client.getFileContents(HISTORY_JSON_PATH, { format: 'text' });
+      return JSON.parse(content as string);
+    }
+    return [];
+  } catch (error) {
+    console.error('Failed to get history list from WebDAV', error);
+    return [];
+  }
+}
+
+export async function saveHistoryList(images: ImageFile[]): Promise<{success: boolean, error?: string}> {
+  const client = getClient();
+  try {
+    await client.putFileContents(HISTORY_JSON_PATH, JSON.stringify(images, null, 2));
+    console.log('History list saved successfully to WebDAV.');
+    return { success: true };
+  } catch (error: any) {
+    console.error('Failed to save history list to WebDAV', error);
     return { success: false, error: error.message || 'An unknown error occurred during save.' };
   }
 }
