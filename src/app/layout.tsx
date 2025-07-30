@@ -2,6 +2,7 @@ import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from '@/context/AuthContext';
+import TopLoaderWrapper from '@/components/top-loader';
 
 export const metadata: Metadata = {
   title: 'HubQueue',
@@ -25,6 +26,7 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <AuthProvider>
+            <TopLoaderWrapper />
             {children}
             <Toaster />
         </AuthProvider>

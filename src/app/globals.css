@@ -86,3 +86,42 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Top loader styles */
+.top-loader-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+.top-loader-wrapper.loading {
+  opacity: 1;
+  transition: opacity 0.05s ease;
+}
+.top-loader-wrapper .bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  background-color: hsl(var(--primary));
+  transform: translateX(-100%);
+  animation: none;
+}
+.top-loader-wrapper.loading .bar {
+  animation: top-loader-animation 0.75s ease-out forwards;
+}
+
+@keyframes top-loader-animation {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(0%);
+  }
+}
