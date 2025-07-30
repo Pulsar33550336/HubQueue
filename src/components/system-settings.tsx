@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { saveMaintenanceStatus, getUsers, getImageList, ImageFile, StoredUser } from '@/services/webdav';
+import { saveMaintenanceStatus, getUsers, getImageList, getHistoryList, ImageFile, StoredUser } from '@/services/webdav';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -33,8 +33,12 @@ export default function SystemSettings() {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!isAuthLoading && (!user || !user.isAdmin)) {
-      router.push('/dashboard');
+    if (!isAuthLoading) {
+      if (!user) {
+        router.push('/login');
+      } else if (!user.isAdmin) {
+        router.push('/dashboard');
+      }
     }
   }, [user, isAuthLoading, router]);
 
@@ -43,25 +47,33 @@ export default function SystemSettings() {
       if (user?.isAdmin) {
         setIsLoading(true);
         try {
-          const images = await getImageList();
-          const users = await getUsers();
+          const [images, history, users] = await Promise.all([
+            getImageList(),
+            getHistoryList(),
+            getUsers()
+          ]);
+          
           const userStats: Record<string, UserStats> = {};
-
           users.forEach(u => {
             userStats[u.username] = { completed: 0, uploaded: 0 };
           });
 
-          images.forEach(image => {
-            if (image.uploadedBy && userStats[image.uploadedBy]) {
-              userStats[image.uploadedBy].uploaded++;
-            }
-            if (image.status === 'completed' && image.completedBy && userStats[image.completedBy]) {
-              userStats[image.completedBy].completed++;
+          const allItems = [...images, ...history];
+
+          allItems.forEach(item => {
+            if (item.uploadedBy && userStats[item.uploadedBy]) {
+              userStats[item.uploadedBy].uploaded++;
             }
           });
           
-          const totalUploaded = images.length;
-          const totalCompleted = images.filter(img => img.status === 'completed').length;
+          history.forEach(item => {
+            if (item.completedBy && userStats[item.completedBy]) {
+               userStats[item.completedBy].completed++;
+            }
+          });
+          
+          const totalUploaded = allItems.length;
+          const totalCompleted = history.length;
 
           setStats({
             totalCompleted,
