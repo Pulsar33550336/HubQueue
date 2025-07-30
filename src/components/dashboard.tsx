@@ -6,7 +6,7 @@ import type { ImageFile } from '@/types';
 import { ImageUploader } from './image-uploader';
 import { ImageQueue } from './image-queue';
 import { useToast } from "@/hooks/use-toast";
-import { getImageList, saveImageList, deleteWebdavFile, getHistoryList, saveHistoryList } from '@/services/webdav';
+import { getImageList, saveImageList, deleteWebdavFile, getHistoryList, saveHistoryList, cleanupOrphanedFiles } from '@/services/webdav';
 import { Skeleton } from './ui/skeleton';
 import { RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -85,6 +85,8 @@ export default function Dashboard() {
   useEffect(() => {
     const initialFetch = async () => {
       setIsLoading(true);
+      // Run cleanup first, but don't block the UI for it.
+      cleanupOrphanedFiles().catch(err => console.error("Background cleanup failed:", err));
       await fetchImages(false);
       setIsLoading(false);
       // Set initial load to false after a short delay to allow the first render to complete
@@ -93,7 +95,7 @@ export default function Dashboard() {
       }, 100);
     };
     initialFetch();
-  }, [fetchImages]);
+  }, []);
   
   useEffect(() => {
     const interval = setInterval(() => {
@@ -250,13 +252,9 @@ export default function Dashboard() {
     setIsSyncing(true);
 
     try {
-        // First, delete the file from storage
-        const { success: deleteSuccess, error: deleteError } = await deleteWebdavFile(imageToComplete.webdavPath);
-        if (!deleteSuccess) {
-            throw new Error(deleteError || `无法从存储中删除文件。`);
-        }
+        // We no longer delete the file immediately.
+        // The cleanupOrphanedFiles job will handle it later.
         
-        // Then, remove the image from the list and move to history
         const [currentImages, currentHistory] = await Promise.all([getImageList(), getHistoryList()]);
         
         const completedImageRecord: ImageFile = {
@@ -283,7 +281,7 @@ export default function Dashboard() {
                 description: "干得漂亮！下一个任务在等着你。",
             });
         } else {
-            throw new Error(saveImagesResult.error || saveHistoryResult.error || "无法更新列表。文件已被删除，但记录可能不一致。");
+            throw new Error(saveImagesResult.error || saveHistoryResult.error || "无法更新列表。");
         }
     } catch (error: any) {
          toast({
@@ -387,3 +385,5 @@ export default function Dashboard() {
     </div>
   );
 }
+
+    

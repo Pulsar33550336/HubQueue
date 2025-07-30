@@ -1,7 +1,7 @@
 
 'use server';
 
-import { createClient, WebDAVClient } from 'webdav';
+import { createClient, WebDAVClient, FileStat } from 'webdav';
 import { webdavConfig } from '@/config/webdav';
 import type { ImageFile } from '@/types';
 
@@ -9,6 +9,8 @@ const IMAGES_JSON_PATH = '/images.json';
 const HISTORY_JSON_PATH = '/history.json';
 const USERS_JSON_PATH = '/users.json';
 const MAINTENANCE_JSON_PATH = '/maintenance.json';
+const UPLOADS_DIR = '/uploads';
+
 
 export type UserRole = 'admin' | 'trusted' | 'user' | 'banned';
 
@@ -66,11 +68,10 @@ export async function uploadToWebdav(fileName: string, dataUrl: string): Promise
   const buffer = Buffer.from(dataUrl.split(',')[1], 'base64');
   
   try {
-    const uploadsPath = '/uploads';
-    const filePath = `${uploadsPath}/${fileName}`;
+    const filePath = `${UPLOADS_DIR}/${fileName}`;
     
-    if (!(await client.exists(uploadsPath))) {
-        await client.createDirectory(uploadsPath);
+    if (!(await client.exists(UPLOADS_DIR))) {
+        await client.createDirectory(UPLOADS_DIR);
     }
 
     const success = await client.putFileContents(filePath, buffer);
@@ -140,7 +141,7 @@ export async function getHistoryList(): Promise<ImageFile[]> {
       return JSON.parse(content as string);
     }
     return [];
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to get history list from WebDAV', error);
     return [];
   }
@@ -170,6 +171,38 @@ export async function deleteWebdavFile(path: string): Promise<{success: boolean,
         return { success: false, error: error.message };
     }
 }
+
+export async function cleanupOrphanedFiles(): Promise<void> {
+    const client = getClient();
+    try {
+        if (!(await client.exists(UPLOADS_DIR))) {
+            console.log("Uploads directory does not exist, skipping cleanup.");
+            return;
+        }
+
+        const [directoryContents, images, history] = await Promise.all([
+            client.getDirectoryContents(UPLOADS_DIR),
+            getImageList(),
+            getHistoryList()
+        ]);
+
+        const knownImagePaths = new Set(images.map(img => img.webdavPath));
+        const knownHistoryPaths = new Set(history.map(img => img.webdavPath));
+
+        const filesInUploads = (directoryContents as FileStat[]).filter(item => item.type === 'file');
+
+        for (const file of filesInUploads) {
+            if (!knownImagePaths.has(file.filename) && !knownHistoryPaths.has(file.filename)) {
+                console.log(`Deleting orphaned file: ${file.filename}`);
+                await deleteWebdavFile(file.filename);
+            }
+        }
+    } catch (error: any) {
+        console.error("Error during orphaned file cleanup:", error.message);
+        // We don't re-throw, as this is a background task and shouldn't crash the main flow.
+    }
+}
+
 
 export async function getUsers(): Promise<StoredUser[]> {
   const client = getClient();
@@ -226,3 +259,7 @@ export async function saveMaintenanceStatus(status: { isMaintenance: boolean }):
     return { success: false, error: error.message };
   }
 }
+
+    
+
+    
