@@ -27,18 +27,20 @@ interface ImageCardProps {
   onClaim: (id: string) => void;
   onUnclaim: (id: string) => void;
   onUpload: (id: string) => void; 
+  onComplete: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
 const statusConfig = {
   queued: { variant: 'secondary', label: '排队中' },
   'in-progress': { variant: 'default', label: '处理中' },
-  uploaded: { variant: 'outline', label: '已上传' },
+  uploaded: { variant: 'outline', label: '待处理' },
   error: { variant: 'destructive', label: '错误' },
+  completed: { variant: 'default', label: '已完成'},
 } as const;
 
 
-export function ImageCard({ image, onClaim, onUnclaim, onUpload, onDelete }: ImageCardProps) {
+export function ImageCard({ image, onClaim, onUnclaim, onUpload, onComplete, onDelete }: ImageCardProps) {
   const { user } = useAuth();
   const { id, name, url, status, claimedBy, uploadedBy, isUploading } = image;
   const config = statusConfig[status];
@@ -151,12 +153,12 @@ export function ImageCard({ image, onClaim, onUnclaim, onUpload, onDelete }: Ima
                                 <AlertDialogHeader>
                                     <AlertDialogTitle>标记为完成？</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                    这将从队列中移除图片 <span className="font-semibold">{name}</span>。请确保您已完成相关工作。
+                                    这将把任务 <span className="font-semibold">{name}</span> 标记为完成。
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                     <AlertDialogCancel>取消</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => onDelete(id)}>确认</AlertDialogAction>
+                                    <AlertDialogAction onClick={() => onComplete(id)}>确认</AlertDialogAction>
                                 </AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>
@@ -185,7 +187,7 @@ export function ImageCard({ image, onClaim, onUnclaim, onUpload, onDelete }: Ima
                     )}
                 </div>
                 
-                {canUserDelete && (
+                {canUserDelete && status !== 'in-progress' && (
                   <AlertDialog>
                     <TooltipProvider>
                         <Tooltip>

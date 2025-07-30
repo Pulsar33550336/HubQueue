@@ -1,4 +1,4 @@
-import { LogOut, Settings as SettingsIcon, User, Users, Wrench } from 'lucide-react';
+import { LogOut, Settings as SettingsIcon, User, Users, Wrench, BarChart } from 'lucide-react';
 import { Button } from './ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -79,7 +79,7 @@ export default function Header() {
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => router.push('/system-settings')}>
                         <Wrench className="mr-2 h-4 w-4" />
-                        <span>系统设置</span>
+                        <span>系统面板</span>
                       </DropdownMenuItem>
                     </>
                   )}

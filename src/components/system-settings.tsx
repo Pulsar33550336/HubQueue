@@ -3,18 +3,32 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { saveMaintenanceStatus } from '@/services/webdav';
+import { saveMaintenanceStatus, getUsers, getImageList, ImageFile, StoredUser } from '@/services/webdav';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from './ui/skeleton';
-import { Wrench } from 'lucide-react';
+import { Wrench, CheckCircle, Upload } from 'lucide-react';
 import { Label } from './ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
+interface UserStats {
+  completed: number;
+  uploaded: number;
+}
+
+interface AllStats {
+  totalCompleted: number;
+  totalUploaded: number;
+  userStats: Record<string, UserStats>;
+}
 
 export default function SystemSettings() {
   const { user, isMaintenanceMode, setMaintenanceMode, isLoading: isAuthLoading } = useAuth();
   const [updatingStates, setUpdatingStates] = useState<Record<string, boolean>>({});
+  const [stats, setStats] = useState<AllStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -23,6 +37,54 @@ export default function SystemSettings() {
       router.push('/dashboard');
     }
   }, [user, isAuthLoading, router]);
+
+  useEffect(() => {
+    async function fetchAndComputeStats() {
+      if (user?.isAdmin) {
+        setIsLoading(true);
+        try {
+          const images = await getImageList();
+          const users = await getUsers();
+          const userStats: Record<string, UserStats> = {};
+
+          users.forEach(u => {
+            userStats[u.username] = { completed: 0, uploaded: 0 };
+          });
+
+          images.forEach(image => {
+            if (image.uploadedBy && userStats[image.uploadedBy]) {
+              userStats[image.uploadedBy].uploaded++;
+            }
+            if (image.status === 'completed' && image.completedBy && userStats[image.completedBy]) {
+              userStats[image.completedBy].completed++;
+            }
+          });
+          
+          const totalUploaded = images.length;
+          const totalCompleted = images.filter(img => img.status === 'completed').length;
+
+          setStats({
+            totalCompleted,
+            totalUploaded,
+            userStats,
+          });
+        } catch (error) {
+          console.error("Failed to load stats:", error);
+           toast({
+            variant: "destructive",
+            title: "加载失败",
+            description: "无法加载统计数据。",
+          });
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    if (user?.isAdmin) {
+        fetchAndComputeStats();
+    }
+  }, [user, toast]);
 
   const handleMaintenanceToggle = async (isMaintenance: boolean) => {
     setUpdatingStates(prev => ({ ...prev, maintenance: true }));
@@ -44,29 +106,41 @@ export default function SystemSettings() {
     setUpdatingStates(prev => ({ ...prev, maintenance: false }));
   }
 
-  if (isAuthLoading) {
-    return (
-        <div className="container mx-auto py-8 px-4 md:px-6">
-            <Card className="mb-8">
-                <CardHeader>
-                    <CardTitle>系统设置</CardTitle>
-                    <CardDescription>管理整个应用程序的全局设置。</CardDescription>
-                </CardHeader>
-                <CardContent>
-                   <div className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center gap-4">
-                            <Wrench className="h-6 w-6 text-muted-foreground" />
-                            <div>
-                               <Skeleton className="h-5 w-24 mb-1" />
-                               <Skeleton className="h-4 w-64" />
-                            </div>
-                        </div>
-                        <Skeleton className="h-6 w-11" />
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
-    );
+  const sortedUsers = stats ? Object.entries(stats.userStats).sort(([, a], [, b]) => b.completed - a.completed) : [];
+
+  const renderSkeleton = () => (
+     <div className="container mx-auto py-8 px-4 md:px-6 space-y-8">
+        <Card className="mb-8">
+            <CardHeader>
+                <CardTitle>系统面板</CardTitle>
+                <CardDescription>管理并查看整个应用程序的全局设置和统计数据。</CardDescription>
+            </CardHeader>
+        </Card>
+
+        <Card>
+            <CardHeader>
+                <Skeleton className="h-6 w-24 mb-1" />
+                <Skeleton className="h-4 w-64" />
+            </CardHeader>
+            <CardContent>
+                <Skeleton className="h-12 w-full" />
+            </CardContent>
+        </Card>
+
+         <Card>
+            <CardHeader>
+                <Skeleton className="h-6 w-32" />
+                <Skeleton className="h-4 w-48" />
+            </CardHeader>
+            <CardContent>
+                <Skeleton className="h-40 w-full" />
+            </CardContent>
+        </Card>
+    </div>
+  );
+
+  if (isAuthLoading || isLoading) {
+    return renderSkeleton();
   }
 
   if (!user?.isAdmin) {
@@ -74,11 +148,18 @@ export default function SystemSettings() {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4 md:px-6">
-        <Card className="mb-8">
+    <div className="container mx-auto py-8 px-4 md:px-6 space-y-8">
+        <Card>
+            <CardHeader>
+                <CardTitle>系统面板</CardTitle>
+                <CardDescription>管理并查看整个应用程序的全局设置和统计数据。</CardDescription>
+            </CardHeader>
+        </Card>
+        
+        <Card>
             <CardHeader>
                 <CardTitle>系统设置</CardTitle>
-                <CardDescription>管理整个应用程序的全局设置。</CardDescription>
+                <CardDescription>管理应用程序范围的设置。</CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="flex items-center justify-between p-4 border rounded-lg">
@@ -97,6 +178,69 @@ export default function SystemSettings() {
                         aria-label="Toggle maintenance mode"
                     />
                 </div>
+            </CardContent>
+        </Card>
+
+        <Card>
+            <CardHeader>
+                <CardTitle>统计数据</CardTitle>
+                <CardDescription>查看整个系统的使用情况和用户贡献。</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                {stats && (
+                    <>
+                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                        <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">总上传数</CardTitle>
+                            <Upload className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{stats.totalUploaded}</div>
+                        </CardContent>
+                        </Card>
+                        <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">总完成数</CardTitle>
+                            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{stats.totalCompleted}</div>
+                        </CardContent>
+                        </Card>
+                    </div>
+
+                    <div>
+                        <h4 className="text-lg font-semibold mb-2">用户排行榜</h4>
+                        <div className="border rounded-lg">
+                            <Table>
+                                <TableHeader>
+                                <TableRow>
+                                    <TableHead>排名</TableHead>
+                                    <TableHead>用户</TableHead>
+                                    <TableHead className="text-right">完成数</TableHead>
+                                    <TableHead className="text-right">上传数</TableHead>
+                                </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                {sortedUsers.length > 0 ? sortedUsers.map(([username, data], index) => (
+                                    <TableRow key={username}>
+                                    <TableCell className="font-medium">{index + 1}</TableCell>
+                                    <TableCell>{username}{user?.username === username && " (您)"}</TableCell>
+                                    <TableCell className="text-right">{data.completed}</TableCell>
+                                    <TableCell className="text-right">{data.uploaded}</TableCell>
+                                    </TableRow>
+                                )) : (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="text-center text-muted-foreground">暂无数据</TableCell>
+                                    </TableRow>
+                                )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </div>
+                    </>
+                )}
             </CardContent>
         </Card>
     </div>

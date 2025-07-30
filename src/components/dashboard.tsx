@@ -1,12 +1,12 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { ImageFile } from '@/types';
 import { ImageUploader } from './image-uploader';
 import { ImageQueue } from './image-queue';
 import { useToast } from "@/hooks/use-toast";
-import { getImageList, saveImageList, uploadToWebdav, deleteWebdavFile } from '@/services/webdav';
+import { getImageList, saveImageList, deleteWebdavFile } from '@/services/webdav';
 import { Skeleton } from './ui/skeleton';
 import { RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -35,11 +35,11 @@ export default function Dashboard() {
       const imageList = await getImageList();
       const migratedImageList = imageList.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' }));
       
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && !isInitialLoad.current) {
         const oldImageIds = new Set(imagesRef.current.map(img => img.id));
         const newImages = migratedImageList.filter(img => !oldImageIds.has(img.id));
         
-        if (newImages.length > 0 && !isInitialLoad.current) {
+        if (newImages.length > 0) {
           const newImageNames = newImages.map(img => img.name).join(', ');
           
           if (getNotificationPreference()) {
@@ -53,7 +53,6 @@ export default function Dashboard() {
             const audio = new Audio('/notification.mp3');
             audio.play().catch(error => {
               // Gracefully handle cases where the sound file might not exist or fails to play.
-              // This prevents console errors for the user.
             });
           }
         }
@@ -82,8 +81,11 @@ export default function Dashboard() {
     const initialFetch = async () => {
       setIsLoading(true);
       await fetchImages(false);
-      isInitialLoad.current = false;
       setIsLoading(false);
+      // Set initial load to false after a short delay to allow the first render to complete
+      setTimeout(() => {
+        isInitialLoad.current = false;
+      }, 100);
     };
     initialFetch();
   }, [fetchImages]);
@@ -235,6 +237,48 @@ export default function Dashboard() {
     }
   };
   
+  const handleCompleteImage = async (id: string) => {
+    const imageToComplete = images.find(img => img.id === id);
+    if (!imageToComplete) return;
+
+    setIsSyncing(true);
+
+    try {
+        // First, delete the file from storage
+        const { success: deleteSuccess, error: deleteError } = await deleteWebdavFile(imageToComplete.webdavPath);
+        if (!deleteSuccess) {
+            throw new Error(deleteError || `无法从存储中删除文件。`);
+        }
+        
+        // Then, remove the image from the list and save
+        const currentImages = await getImageList();
+        const updatedImages = currentImages.filter(img => img.id !== id);
+
+        const { success: saveSuccess, error: saveError } = await saveImageList(updatedImages);
+        if (saveSuccess) {
+            setImages(updatedImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
+            toast({
+                title: "任务已完成",
+                description: `${imageToComplete.name} 已被完成并移除。`,
+            });
+        } else {
+            // This part is tricky. The file is deleted but the list is not updated.
+            // We should probably try to re-add the file or at least notify the user of the inconsistency.
+            // For now, we'll just show an error and fetch the (now inconsistent) state.
+            throw new Error(saveError || "无法更新图片列表。文件已被删除，但记录可能仍然存在。");
+        }
+    } catch (error: any) {
+         toast({
+            variant: "destructive",
+            title: "操作失败",
+            description: error.message,
+        });
+        await fetchImages(false); // Refetch to get the latest state
+    } finally {
+        setIsSyncing(false);
+    }
+  };
+
   const handleDeleteImage = async (id: string) => {
     const imageToDelete = images.find(img => img.id === id);
     if (!imageToDelete) return;
@@ -276,6 +320,16 @@ export default function Dashboard() {
       console.log("此操作已弃用，因为图片在加入队列前就已上传。", id)
   }
 
+  const activeImages = images.filter(img => img.status !== 'completed');
+  
+  const queueStats = useMemo(() => {
+    const totalUploaded = images.length;
+    const totalCompleted = images.filter(img => img.status === 'completed').length;
+    const userUploaded = user ? images.filter(img => img.uploadedBy === user.username).length : 0;
+    const userCompleted = user ? images.filter(img => img.status === 'completed' && img.completedBy === user.username).length : 0;
+    return { totalUploaded, totalCompleted, userUploaded, userCompleted };
+  }, [images, user]);
+
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
       <ImageUploader onImageUploaded={handleImageUploaded} />
@@ -302,10 +356,12 @@ export default function Dashboard() {
         </div>
       ) : (
         <ImageQueue
-          images={images}
+          images={activeImages}
+          stats={queueStats}
           onClaim={handleClaimImage}
           onUnclaim={handleUnclaimImage}
           onUpload={handleUploadFromQueue}
+          onComplete={handleCompleteImage}
           onDelete={handleDeleteImage}
           isSyncing={isSyncing}
         />
@@ -313,3 +369,5 @@ export default function Dashboard() {
     </div>
   );
 }
+
+    
