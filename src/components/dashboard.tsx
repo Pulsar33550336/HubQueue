@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -9,6 +10,8 @@ import { getImageList, saveImageList, uploadToWebdav, deleteWebdavFile } from '@
 import { Skeleton } from './ui/skeleton';
 import { RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { getSoundPreference, getNotificationPreference } from '@/lib/preferences';
+
 
 const POLLING_INTERVAL = 5000; // 5 seconds
 
@@ -22,14 +25,40 @@ export default function Dashboard() {
   const imagesRef = useRef(images);
   imagesRef.current = images;
 
+  const isInitialLoad = useRef(true);
+
   const fetchImages = useCallback(async (showSyncingIndicator = false) => {
     if (showSyncingIndicator) {
       setIsSyncing(true);
     }
     try {
       const imageList = await getImageList();
-      // Simple migration for old data that doesn't have `uploadedBy`
       const migratedImageList = imageList.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' }));
+      
+      if (document.visibilityState === 'visible') {
+        const oldImageIds = new Set(imagesRef.current.map(img => img.id));
+        const newImages = migratedImageList.filter(img => !oldImageIds.has(img.id));
+        
+        if (newImages.length > 0 && !isInitialLoad.current) {
+          const newImageNames = newImages.map(img => img.name).join(', ');
+          
+          if (getNotificationPreference()) {
+            toast({
+              title: '有新图片加入队列',
+              description: `新图片: ${newImageNames}`,
+            });
+          }
+          
+          if (getSoundPreference()) {
+            const audio = new Audio('/notification.mp3');
+            audio.play().catch(error => {
+              // Gracefully handle cases where the sound file might not exist or fails to play.
+              // This prevents console errors for the user.
+            });
+          }
+        }
+      }
+
       if (JSON.stringify(migratedImageList) !== JSON.stringify(imagesRef.current)) {
         setImages(migratedImageList);
       }
@@ -53,6 +82,7 @@ export default function Dashboard() {
     const initialFetch = async () => {
       setIsLoading(true);
       await fetchImages(false);
+      isInitialLoad.current = false;
       setIsLoading(false);
     };
     initialFetch();

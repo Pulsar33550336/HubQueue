@@ -1,4 +1,4 @@
-import { LogOut, Settings as SettingsIcon, User } from 'lucide-react';
+import { LogOut, Settings as SettingsIcon, User, Users } from 'lucide-react';
 import { Button } from './ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -24,8 +24,8 @@ export default function Header() {
     router.push('/login');
   }
   
-  const handleSettings = () => {
-    router.push('/settings');
+  const handleNavigate = (path: string) => {
+    router.push(path);
   }
 
   const getRoleLabel = () => {
@@ -71,12 +71,17 @@ export default function Header() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {user.isAdmin && (
-                    <DropdownMenuItem onClick={handleSettings}>
+                   <DropdownMenuItem onClick={() => handleNavigate('/settings')}>
                       <SettingsIcon className="mr-2 h-4 w-4" />
                       <span>设置</span>
                     </DropdownMenuItem>
+                  {user.isAdmin && (
+                    <DropdownMenuItem onClick={() => handleNavigate('/users')}>
+                      <Users className="mr-2 h-4 w-4" />
+                      <span>用户管理</span>
+                    </DropdownMenuItem>
                   )}
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>退出登录</span>

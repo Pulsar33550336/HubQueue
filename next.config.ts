@@ -20,9 +20,6 @@ const nextConfig: NextConfig = {
     // Allow images from any source since we are proxying from WebDAV
     unoptimized: true,
   },
-  devIndicators: {
-    buildActivity: false,
-  },
 };
 
 export default nextConfig;

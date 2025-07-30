@@ -27,7 +27,7 @@ export default function UserManagement() {
     }
   }, [user, isAuthLoading, router]);
 
-  const fetchUsers = async () => {
+  const fetchAdminData = async () => {
       if (user?.isAdmin) {
         setIsLoading(true);
         try {
@@ -40,8 +40,8 @@ export default function UserManagement() {
         } catch (error) {
           toast({
             variant: "destructive",
-            title: "加载用户失败",
-            description: "无法从服务器获取用户列表。",
+            title: "加载失败",
+            description: "无法从服务器获取管理员数据。",
           });
         } finally {
           setIsLoading(false);
@@ -50,7 +50,7 @@ export default function UserManagement() {
     };
     
   useEffect(() => {
-    fetchUsers();
+    fetchAdminData();
   }, [user]);
   
   const handleTrustToggle = async (username: string, isTrusted: boolean) => {
@@ -80,7 +80,7 @@ export default function UserManagement() {
            await updateUserStatus(username);
         }
         
-        await fetchUsers();
+        await fetchAdminData();
     }
     setUpdatingStates(prev => ({ ...prev, [username]: false }));
   };
