@@ -1,4 +1,4 @@
-import { LogOut, Settings as SettingsIcon, User, Users } from 'lucide-react';
+import { LogOut, Settings as SettingsIcon, User, Users, Wrench } from 'lucide-react';
 import { Button } from './ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -22,10 +22,6 @@ export default function Header() {
   const handleLogout = () => {
     logout();
     router.push('/login');
-  }
-  
-  const handleNavigate = (path: string) => {
-    router.push(path);
   }
 
   const getRoleLabel = () => {
@@ -71,15 +67,21 @@ export default function Header() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                   <DropdownMenuItem onClick={() => handleNavigate('/settings')}>
+                   <DropdownMenuItem onClick={() => router.push('/settings')}>
                       <SettingsIcon className="mr-2 h-4 w-4" />
-                      <span>设置</span>
+                      <span>个人设置</span>
                     </DropdownMenuItem>
                   {user.isAdmin && (
-                    <DropdownMenuItem onClick={() => handleNavigate('/users')}>
-                      <Users className="mr-2 h-4 w-4" />
-                      <span>用户管理</span>
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuItem onClick={() => router.push('/users')}>
+                        <Users className="mr-2 h-4 w-4" />
+                        <span>用户管理</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => router.push('/system-settings')}>
+                        <Wrench className="mr-2 h-4 w-4" />
+                        <span>系统设置</span>
+                      </DropdownMenuItem>
+                    </>
                   )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout}>

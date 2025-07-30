@@ -3,18 +3,17 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { getUsers, saveUsers, StoredUser, getMaintenanceStatus, saveMaintenanceStatus } from '@/services/webdav';
+import { getUsers, saveUsers, StoredUser } from '@/services/webdav';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from './ui/skeleton';
-import { ShieldCheck, User as UserIcon, Wrench } from 'lucide-react';
-import { Label } from './ui/label';
+import { ShieldCheck, User as UserIcon } from 'lucide-react';
 
 export default function UserManagement() {
-  const { user, isMaintenanceMode, setMaintenanceMode, isLoading: isAuthLoading, updateUserStatus } = useAuth();
+  const { user, isLoading: isAuthLoading, updateUserStatus } = useAuth();
   const [users, setUsers] = useState<StoredUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [updatingStates, setUpdatingStates] = useState<Record<string, boolean>>({});
@@ -27,21 +26,17 @@ export default function UserManagement() {
     }
   }, [user, isAuthLoading, router]);
 
-  const fetchAdminData = async () => {
+  const fetchUsers = async () => {
       if (user?.isAdmin) {
         setIsLoading(true);
         try {
-           const [userList, maintenanceStatus] = await Promise.all([
-            getUsers(),
-            getMaintenanceStatus(),
-          ]);
-          setUsers(userList);
-          setMaintenanceMode(maintenanceStatus.isMaintenance);
+           const userList = await getUsers();
+           setUsers(userList);
         } catch (error) {
           toast({
             variant: "destructive",
             title: "加载失败",
-            description: "无法从服务器获取管理员数据。",
+            description: "无法从服务器获取用户列表。",
           });
         } finally {
           setIsLoading(false);
@@ -50,11 +45,11 @@ export default function UserManagement() {
     };
     
   useEffect(() => {
-    fetchAdminData();
+    fetchUsers();
   }, [user]);
   
   const handleTrustToggle = async (username: string, isTrusted: boolean) => {
-    setUpdatingStates(prev => ({ ...prev, [username]: true }));
+    setUpdatingStates(prev => ({ ...prev, [`trust-${username}`]: true }));
     const originalUsers = [...users];
     const updatedUsers = users.map(u => 
         u.username === username ? { ...u, isTrusted } : u
@@ -73,67 +68,76 @@ export default function UserManagement() {
     } else {
          toast({
             title: '更新成功',
-            description: `用户 ${username} 的权限已更新。`,
+            description: `用户 ${username} 的可信状态已更新。`,
         });
         
         if (user && user.username === username) {
            await updateUserStatus(username);
         }
-        
-        await fetchAdminData();
+        await fetchUsers();
     }
-    setUpdatingStates(prev => ({ ...prev, [username]: false }));
+    setUpdatingStates(prev => ({ ...prev, [`trust-${username}`]: false }));
   };
 
-  const handleMaintenanceToggle = async (isMaintenance: boolean) => {
-    setUpdatingStates(prev => ({ ...prev, maintenance: true }));
-    setMaintenanceMode(isMaintenance);
-    const { success, error } = await saveMaintenanceStatus({ isMaintenance });
-     if (!success) {
+  const handleAdminToggle = async (username: string, isAdmin: boolean) => {
+    setUpdatingStates(prev => ({ ...prev, [`admin-${username}`]: true }));
+    const originalUsers = [...users];
+    const updatedUsers = users.map(u => 
+        u.username === username ? { ...u, isAdmin, isTrusted: u.isTrusted || isAdmin } : u
+    );
+    setUsers(updatedUsers);
+
+    const { success, error } = await saveUsers(updatedUsers);
+
+    if (!success) {
         toast({
             variant: 'destructive',
-            title: '操作失败',
-            description: error || '无法更新维护状态。',
+            title: '更新失败',
+            description: error || '无法保存用户权限更改。',
         });
-        setMaintenanceMode(!isMaintenance);
+        setUsers(originalUsers);
     } else {
-         toast({
-            title: '操作成功',
-            description: `网站维护模式已${isMaintenance ? '开启' : '关闭'}。`,
+        toast({
+            title: '更新成功',
+            description: `用户 ${username} 的管理员状态已更新。`,
         });
+        if (user && user.username === username) {
+           await updateUserStatus(username);
+        }
+        await fetchUsers();
     }
-    setUpdatingStates(prev => ({ ...prev, maintenance: false }));
-  }
+    setUpdatingStates(prev => ({ ...prev, [`admin-${username}`]: false }));
+  };
 
   if (isAuthLoading || isLoading) {
     return (
         <div className="container mx-auto py-8 px-4 md:px-6">
-            <Card className='mb-8'>
-                <CardHeader>
-                    <CardTitle>系统设置</CardTitle>
-                    <CardDescription>正在加载系统设置...</CardDescription>
-                </CardHeader>
-                 <CardContent>
-                    <Skeleton className="h-8 w-48" />
-                </CardContent>
-            </Card>
             <Card>
                 <CardHeader>
                     <CardTitle>用户管理</CardTitle>
                     <CardDescription>正在加载用户列表...</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="space-y-4">
+                     <Table>
+                        <TableHeader>
+                        <TableRow>
+                            <TableHead><Skeleton className="h-4 w-12" /></TableHead>
+                            <TableHead><Skeleton className="h-4 w-24" /></TableHead>
+                            <TableHead className="text-right"><Skeleton className="h-4 w-16" /></TableHead>
+                            <TableHead className="text-right"><Skeleton className="h-4 w-16" /></TableHead>
+                        </TableRow>
+                        </TableHeader>
+                        <TableBody>
                         {[...Array(3)].map((_, i) => (
-                            <div key={i} className="flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    <Skeleton className="h-8 w-8 rounded-full" />
-                                    <Skeleton className="h-4 w-24" />
-                                </div>
-                                <Skeleton className="h-6 w-12" />
-                            </div>
+                            <TableRow key={i}>
+                                <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                                <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                                <TableCell className="text-right"><Skeleton className="h-6 w-11 ml-auto" /></TableCell>
+                                <TableCell className="text-right"><Skeleton className="h-6 w-11 ml-auto" /></TableCell>
+                            </TableRow>
                         ))}
-                    </div>
+                        </TableBody>
+                    </Table>
                 </CardContent>
             </Card>
         </div>
@@ -146,34 +150,10 @@ export default function UserManagement() {
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
-        <Card className="mb-8">
-            <CardHeader>
-                <CardTitle>系统设置</CardTitle>
-                <CardDescription>管理整个应用程序的全局设置。</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center gap-4">
-                         <Wrench className="h-6 w-6 text-muted-foreground" />
-                        <div>
-                            <Label htmlFor="maintenance-mode" className="font-semibold">维护模式</Label>
-                            <p className="text-sm text-muted-foreground">开启后，只有管理员可以访问网站。</p>
-                        </div>
-                    </div>
-                    <Switch
-                        id="maintenance-mode"
-                        checked={isMaintenanceMode}
-                        onCheckedChange={handleMaintenanceToggle}
-                        disabled={updatingStates['maintenance']}
-                        aria-label="Toggle maintenance mode"
-                    />
-                </div>
-            </CardContent>
-        </Card>
         <Card>
             <CardHeader>
             <CardTitle>用户管理</CardTitle>
-            <CardDescription>授予或撤销用户的任务认领权限。</CardDescription>
+            <CardDescription>管理用户的角色和权限。</CardDescription>
             </CardHeader>
             <CardContent>
             <Table>
@@ -181,39 +161,46 @@ export default function UserManagement() {
                 <TableRow>
                     <TableHead>用户</TableHead>
                     <TableHead>角色</TableHead>
-                    <TableHead className="text-right">可信状态</TableHead>
+                    <TableHead className="text-right">可信</TableHead>
+                    <TableHead className="text-right">管理员</TableHead>
                 </TableRow>
                 </TableHeader>
                 <TableBody>
-                {users.map((u) => (
-                    <TableRow key={u.username}>
-                    <TableCell className="font-medium">{u.username}</TableCell>
-                    <TableCell>
-                        {u.isAdmin ? (
-                            <span className="flex items-center gap-2 font-semibold text-primary">
-                                <ShieldCheck className="h-4 w-4" /> 管理员
-                            </span>
-                        ) : (
-                            <span className="flex items-center gap-2 text-muted-foreground">
-                                <UserIcon className="h-4 w-4" /> 用户
-                            </span>
-                        )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                            <span className={`text-sm font-medium ${u.isTrusted || u.isAdmin ? 'text-primary' : 'text-muted-foreground'}`}>
-                            {u.isTrusted || u.isAdmin ? '可信' : '不可信'}
-                            </span>
-                            <Switch
+                {users.map((u, index) => {
+                    const isInitialAdmin = index === 0;
+                    return (
+                        <TableRow key={u.username}>
+                        <TableCell className="font-medium">{u.username}</TableCell>
+                        <TableCell>
+                            {u.isAdmin ? (
+                                <span className="flex items-center gap-2 font-semibold text-primary">
+                                    <ShieldCheck className="h-4 w-4" /> 管理员
+                                </span>
+                            ) : (
+                                <span className="flex items-center gap-2 text-muted-foreground">
+                                    <UserIcon className="h-4 w-4" /> 用户
+                                </span>
+                            )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                             <Switch
                                 checked={u.isTrusted || u.isAdmin}
                                 onCheckedChange={(checked) => handleTrustToggle(u.username, checked)}
-                                disabled={u.isAdmin || updatingStates[u.username]}
-                                aria-label={`Toggle trust for ${u.username}`}
+                                disabled={u.isAdmin || updatingStates[`trust-${u.username}`] || isInitialAdmin}
+                                aria-label={`Toggle trusted status for ${u.username}`}
                             />
-                        </div>
-                    </TableCell>
-                    </TableRow>
-                ))}
+                        </TableCell>
+                        <TableCell className="text-right">
+                             <Switch
+                                checked={u.isAdmin}
+                                onCheckedChange={(checked) => handleAdminToggle(u.username, checked)}
+                                disabled={updatingStates[`admin-${u.username}`] || isInitialAdmin}
+                                aria-label={`Toggle admin status for ${u.username}`}
+                            />
+                        </TableCell>
+                        </TableRow>
+                    );
+                })}
                 </TableBody>
             </Table>
             </CardContent>

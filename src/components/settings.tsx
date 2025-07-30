@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { getSoundPreference, setSoundPreference, getNotificationPreference, setNotificationPreference } from '@/lib/preferences';
 import { BellRing, BellOff, Volume2, VolumeX } from 'lucide-react';
+import { Skeleton } from './ui/skeleton';
 
 export default function Settings() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -28,16 +29,47 @@ export default function Settings() {
     setSoundEnabled(enabled);
     setSoundPreference(enabled);
   };
-
+  
   if (!isClient) {
-    return null;
+     return (
+       <div className="container mx-auto py-8 px-4 md:px-6">
+        <Card>
+            <CardHeader>
+                <CardTitle>个人设置</CardTitle>
+                <CardDescription>管理您的账户和应用偏好。</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                 <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-4">
+                        <Skeleton className="h-6 w-6" />
+                        <div>
+                           <Skeleton className="h-5 w-32 mb-1" />
+                           <Skeleton className="h-4 w-72" />
+                        </div>
+                    </div>
+                    <Skeleton className="h-6 w-11" />
+                </div>
+                 <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-4">
+                        <Skeleton className="h-6 w-6" />
+                        <div>
+                           <Skeleton className="h-5 w-24 mb-1" />
+                           <Skeleton className="h-4 w-72" />
+                        </div>
+                    </div>
+                    <Skeleton className="h-6 w-11" />
+                </div>
+            </CardContent>
+        </Card>
+       </div>
+    );
   }
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
         <Card>
             <CardHeader>
-                <CardTitle>设置</CardTitle>
+                <CardTitle>个人设置</CardTitle>
                 <CardDescription>管理您的账户和应用偏好。</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
