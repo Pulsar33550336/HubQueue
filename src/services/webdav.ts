@@ -92,26 +92,7 @@ export async function getImageList(): Promise<ImageFile[]> {
   try {
     if (await client.exists(IMAGES_JSON_PATH)) {
       const content = await client.getFileContents(IMAGES_JSON_PATH, { format: 'text' });
-      let images: ImageFile[] = JSON.parse(content as string);
-
-      const completedImages = images.filter(img => img.status === 'completed');
-      if (completedImages.length > 0) {
-        console.log(`Migrating ${completedImages.length} completed images from images.json to history.json`);
-        const activeImages = images.filter(img => img.status !== 'completed');
-        
-        const history = await getHistoryList();
-        const updatedHistory = [...completedImages, ...history];
-
-        // Perform migration
-        await Promise.all([
-          saveImageList(activeImages),
-          saveHistoryList(updatedHistory)
-        ]);
-
-        return activeImages;
-      }
-      
-      return images;
+      return JSON.parse(content as string);
     }
     return [];
   } catch (error: any) {
@@ -123,8 +104,7 @@ export async function getImageList(): Promise<ImageFile[]> {
 export async function saveImageList(images: ImageFile[]): Promise<{success: boolean, error?: string}> {
   const client = getClient();
   try {
-    const activeImages = images.filter(img => img.status !== 'completed');
-    await client.putFileContents(IMAGES_JSON_PATH, JSON.stringify(activeImages, null, 2));
+    await client.putFileContents(IMAGES_JSON_PATH, JSON.stringify(images, null, 2));
     console.log('Image list saved successfully to WebDAV.');
     return { success: true };
   } catch (error: any) {
@@ -168,7 +148,8 @@ export async function deleteWebdavFile(path: string): Promise<{success: boolean,
         return { success: true };
     } catch (error: any) {
         console.error(`Failed to delete file from WebDAV: ${path}`, error);
-        return { success: false, error: error.message };
+        // Return the error message, which might include status code like 404
+        return { success: false, error: error.message || 'Unknown error' };
     }
 }
 
@@ -180,19 +161,17 @@ export async function cleanupOrphanedFiles(): Promise<void> {
             return;
         }
 
-        const [directoryContents, images, history] = await Promise.all([
+        const [directoryContents, images] = await Promise.all([
             client.getDirectoryContents(UPLOADS_DIR),
-            getImageList(),
-            getHistoryList()
+            getImageList()
         ]);
 
         const knownImagePaths = new Set(images.map(img => img.webdavPath));
-        const knownHistoryPaths = new Set(history.map(img => img.webdavPath));
 
         const filesInUploads = (directoryContents as FileStat[]).filter(item => item.type === 'file');
 
         for (const file of filesInUploads) {
-            if (!knownImagePaths.has(file.filename) && !knownHistoryPaths.has(file.filename)) {
+            if (!knownImagePaths.has(file.filename)) {
                 console.log(`Deleting orphaned file: ${file.filename}`);
                 await deleteWebdavFile(file.filename);
             }
@@ -259,7 +238,5 @@ export async function saveMaintenanceStatus(status: { isMaintenance: boolean }):
     return { success: false, error: error.message };
   }
 }
-
-    
 
     

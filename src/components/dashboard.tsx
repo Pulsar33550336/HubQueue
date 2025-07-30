@@ -34,9 +34,7 @@ export default function Dashboard() {
     }
     try {
       const [imageList, historyList] = await Promise.all([getImageList(), getHistoryList()]);
-      const migratedImageList = imageList
-        .filter(img => img.status !== 'completed') // Ensure completed images are not displayed from the queue
-        .map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' }));
+      const migratedImageList = imageList.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' }));
       
       if (document.visibilityState === 'visible' && !isInitialLoad.current) {
         const oldImageIds = new Set(imagesRef.current.map(img => img.id));
@@ -252,9 +250,17 @@ export default function Dashboard() {
     setIsSyncing(true);
 
     try {
-        // We no longer delete the file immediately.
-        // The cleanupOrphanedFiles job will handle it later.
+        // First, delete the file from WebDAV storage.
+        const { success: deleteSuccess, error: deleteError } = await deleteWebdavFile(imageToComplete.webdavPath);
         
+        if (!deleteSuccess) {
+           // If the file is already deleted, we can proceed. Otherwise, throw error.
+            if (deleteError && !deleteError.includes('404')) {
+                 throw new Error(deleteError || `无法从存储中删除文件。`);
+            }
+        }
+        
+        // If file deletion is successful (or file was already gone), update the lists.
         const [currentImages, currentHistory] = await Promise.all([getImageList(), getHistoryList()]);
         
         const completedImageRecord: ImageFile = {
@@ -304,7 +310,10 @@ export default function Dashboard() {
     try {
         const { success: deleteSuccess, error: deleteError } = await deleteWebdavFile(imageToDelete.webdavPath);
         if (!deleteSuccess) {
-            throw new Error(deleteError || `无法从存储中删除文件。`);
+            // Allow continuing if file not found, otherwise throw
+            if (deleteError && !deleteError.includes('404')) {
+                throw new Error(deleteError || `无法从存储中删除文件。`);
+            }
         }
 
         const currentImages = await getImageList();
@@ -385,5 +394,7 @@ export default function Dashboard() {
     </div>
   );
 }
+
+    
 
     
