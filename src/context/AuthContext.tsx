@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import Cookies from 'js-cookie';
-import { getUsers, StoredUser, getMaintenanceStatus, saveUsers, UserRole } from '@/services/webdav'; 
+import { getUsers, StoredUser, getMaintenanceStatus, addUser, UserRole, saveUsers } from '@/services/webdav'; 
 
 interface User {
   username: string;
@@ -170,7 +170,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     
     setIsLoading(true);
     try {
-        let users = await getUsers();
+        const users = await getUsers();
 
         if (users.find(u => u.username === username)) {
             return { success: false, message: "该用户名已存在。" };
@@ -185,14 +185,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             role,
         };
         
-        const currentUsers = await getUsers();
-        // Double-check in case of race condition
-        if (currentUsers.find(u => u.username === username)) {
-            return { success: false, message: "该用户名刚刚被注册，请换一个。" };
-        }
-        
-        const updatedUsers = [...currentUsers, newUser];
-        const { success, error } = await saveUsers(updatedUsers);
+        const { success, error } = await addUser(newUser);
 
         if (success) {
             const userData = { 

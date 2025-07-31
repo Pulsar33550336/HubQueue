@@ -6,7 +6,7 @@ import type { ImageFile } from '@/types';
 import { ImageUploader } from './image-uploader';
 import { ImageQueue } from './image-queue';
 import { useToast } from "@/hooks/use-toast";
-import { getImageList, saveImageList, getHistoryList, saveHistoryList } from '@/services/webdav';
+import { getImageList, getHistoryList, addImage, updateImage, deleteImage } from '@/services/webdav';
 import { Skeleton } from './ui/skeleton';
 import { RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -28,7 +28,8 @@ export default function Dashboard() {
   const ablyRef = useRef<Ably.Realtime | null>(null);
 
   const fetchInitialData = useCallback(async () => {
-    setIsLoading(true);
+    // We don't want the main loading state for background refreshes
+    // setIsLoading(true); 
     try {
       const [imageList, historyList] = await Promise.all([getImageList(), getHistoryList()]);
       const migratedImageList = imageList.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' }));
@@ -38,15 +39,20 @@ export default function Dashboard() {
        toast({
         variant: "destructive",
         title: "无法加载图片列表",
-        description: error.message || "无法连接到 WebDAV。",
+        description: error.message || "无法连接到数据库。",
       });
     } finally {
-        setIsLoading(false);
+        if (isLoading) {
+            setIsLoading(false);
+        }
     }
-  }, [toast]);
+  }, [toast, isLoading]);
   
   useEffect(() => {
     fetchInitialData();
+
+    // Set up periodic refresh as a fallback
+    const intervalId = setInterval(fetchInitialData, 60000); // Refresh every 60 seconds
 
     if (!ablyRef.current) {
       ablyRef.current = new Ably.Realtime({ authUrl: '/api/ably-auth' });
@@ -60,36 +66,38 @@ export default function Dashboard() {
         const { name, data } = message;
         console.log(`Received Ably message: ${name}`, data);
 
-        if (name === 'image_added') {
-            const newImage = data as ImageFile;
-            setImages(prev => [newImage, ...prev]);
-
-            if (getNotificationPreference()) {
-                toast({
-                    title: '有新图片加入队列',
-                    description: `新图片: ${newImage.name}`,
-                });
+        if (name === 'queue_updated') {
+            const { images: newImages, history: newHistory } = data;
+            const hadImageAdded = newImages.length > imagesRef.current.length;
+            
+            setImages(newImages);
+            setHistory(newHistory);
+            
+            if (hadImageAdded) {
+                 if (getNotificationPreference()) {
+                    toast({
+                        title: '有新图片加入队列',
+                        description: `新图片: ${newImages[0].name}`,
+                    });
+                }
+                if (getSoundPreference()) {
+                    new Audio('/notification.mp3').play().catch(() => {});
+                }
             }
-            if (getSoundPreference()) {
-                new Audio('/notification.mp3').play().catch(() => {});
-            }
-        } else if (name === 'image_updated') {
-            const updatedImage = data as ImageFile;
-            setImages(prev => prev.map(img => img.id === updatedImage.id ? updatedImage : img));
-        } else if (name === 'image_completed') {
-            const { imageId, completedImage } = data;
-            setImages(prev => prev.filter(img => img.id !== imageId));
-            setHistory(prev => [completedImage, ...prev]);
-        } else if (name === 'image_deleted') {
-            const { imageId } = data;
-            setImages(prev => prev.filter(img => img.id !== imageId));
+        } else if (name === 'system_updated') {
+            // A simple way to react to broad changes is to refetch all data
+            // This could be optimized to be more granular
+            fetchInitialData();
         }
       });
     }
-    // No cleanup function to keep the connection alive across SPA navigations
-    // The browser will handle closing the connection on page exit.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+
+    return () => {
+        clearInterval(intervalId);
+        // We don't close the Ably connection here to keep it alive across SPA navigations.
+        // The browser will handle closing the connection on page exit.
+    };
+  }, [fetchInitialData]);
   
   const handleClaimImage = async (id: string) => {
     if (!user) {
@@ -101,28 +109,27 @@ export default function Dashboard() {
         return;
     }
 
-    setIsSyncing(true);
-    try {
-      const currentImages = await getImageList(); // Still fetch to avoid race conditions
-      const imageToClaim = currentImages.find(img => img.id === id);
+    const originalImages = [...images];
+    const imageToClaim = images.find(img => img.id === id);
 
-      if (imageToClaim && imageToClaim.status === 'uploaded') {
-        const updatedImages = currentImages.map(img => 
-          img.id === id ? { ...img, status: 'in-progress', claimedBy: user.username } : img
-        );
-        
-        const { success, error } = await saveImageList(updatedImages, { type: 'update', payload: updatedImages.find(i => i.id === id)! });
-        
-        if (!success) {
-          throw new Error(error || "无法保存更新后的图片列表。");
-        }
-      } else {
-         toast({
+    if (!imageToClaim || imageToClaim.status !== 'uploaded') {
+        toast({
             variant: "destructive",
             title: "操作失败",
             description: "该任务可能已被其他用户认领。"
         });
-        setImages(currentImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
+        return;
+    }
+
+    setIsSyncing(true);
+    const updatedImage = { ...imageToClaim, status: 'in-progress', claimedBy: user.username } as ImageFile;
+    // Optimistic UI update
+    setImages(prev => prev.map(img => img.id === id ? updatedImage : img));
+
+    try {
+      const { success, error } = await updateImage(updatedImage);
+      if (!success) {
+        throw new Error(error || "无法保存更新后的图片列表。");
       }
     } catch (error: any) {
        toast({
@@ -130,9 +137,7 @@ export default function Dashboard() {
         title: "同步错误",
         description: error.message || "无法认领任务。",
       });
-      // Rollback UI on error
-      const currentImages = await getImageList();
-      setImages(currentImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
+      setImages(originalImages); // Rollback UI on error
     } finally {
         setIsSyncing(false);
     }
@@ -140,28 +145,27 @@ export default function Dashboard() {
   
   const handleUnclaimImage = async (id: string) => {
     if (!user) return;
-    setIsSyncing(true);
-    try {
-      const currentImages = await getImageList();
-      const imageToUnclaim = currentImages.find(img => img.id === id);
+    
+    const originalImages = [...images];
+    const imageToUnclaim = images.find(img => img.id === id);
 
-      if (imageToUnclaim && (imageToUnclaim.claimedBy === user.username || user.isAdmin)) {
-        const updatedImages = currentImages.map(img =>
-          img.id === id ? { ...img, status: 'uploaded', claimedBy: undefined } : img
-        );
-
-        const { success, error } = await saveImageList(updatedImages, { type: 'update', payload: updatedImages.find(i => i.id === id)! });
-
-        if (!success) {
-          throw new Error(error || "无法保存更新后的图片列表。");
-        }
-      } else {
-        toast({
+    if (!imageToUnclaim || !(imageToUnclaim.claimedBy === user.username || user.isAdmin)) {
+         toast({
           variant: "destructive",
           title: "操作失败",
           description: "您没有权限放回此任务。",
         });
-        setImages(currentImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
+        return;
+    }
+
+    setIsSyncing(true);
+    const updatedImage = { ...imageToUnclaim, status: 'uploaded', claimedBy: undefined } as ImageFile;
+    setImages(prev => prev.map(img => img.id === id ? updatedImage : img));
+
+    try {
+      const { success, error } = await updateImage(updatedImage);
+      if (!success) {
+        throw new Error(error || "无法保存更新后的图片列表。");
       }
     } catch (error: any) {
       toast({
@@ -169,8 +173,7 @@ export default function Dashboard() {
         title: "同步错误",
         description: error.message || "无法放回任务。",
       });
-      const currentImages = await getImageList();
-      setImages(currentImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
+      setImages(originalImages);
     } finally {
       setIsSyncing(false);
     }
@@ -187,22 +190,18 @@ export default function Dashboard() {
     }
     setIsSyncing(true);
     try {
-        const newImage: ImageFile = {
+        const newImage: Omit<ImageFile, 'url'> = {
             id: Math.random().toString(36).substring(2, 9),
             name: uploadedImage.name,
             webdavPath: uploadedImage.webdavPath,
-            url: `/api/image?path=${encodeURIComponent(uploadedImage.webdavPath)}`,
             status: 'uploaded',
             uploadedBy: user.username,
             createdAt: Date.now(),
         };
 
-        const currentImages = await getImageList();
-        const updatedImages = [newImage, ...currentImages];
-
-        const { success, error } = await saveImageList(updatedImages, { type: 'add', payload: newImage });
+        const { success, error } = await addImage(newImage);
         if (!success) {
-            throw new Error(error || '无法将图片列表保存到 WebDAV。');
+            throw new Error(error || '无法将图片保存到数据库。');
         }
     } catch (error: any) {
         toast({
@@ -217,65 +216,63 @@ export default function Dashboard() {
   
   const handleCompleteImage = async (id: string, notes: string) => {
     if (!user) return;
+
+    const originalImages = [...images];
+    const imageToComplete = images.find(img => img.id === id);
+    if (!imageToComplete) {
+        toast({ variant: "destructive", title: "错误", description: "找不到要完成的任务。" });
+        return;
+    }
+
     setIsSyncing(true);
+    const completedImage: ImageFile = {
+        ...imageToComplete,
+        status: 'completed',
+        completedBy: user.username,
+        completedAt: Date.now(),
+        completionNotes: notes,
+    };
+    
+    // UI update is now handled by Ably broadcast, but we can do a preemptive update for responsiveness
+    setImages(prev => prev.filter(img => img.id !== id));
+    setHistory(prev => [completedImage, ...prev]);
 
     try {
-        const currentImages = await getImageList();
-        const imageToComplete = currentImages.find(img => img.id === id);
-        if (!imageToComplete) {
-            toast({ variant: "destructive", title: "错误", description: "找不到要完成的任务。" });
-            return;
-        }
-
-        const currentHistory = await getHistoryList();
-        
-        const completedImageRecord: ImageFile = {
-            ...imageToComplete,
-            status: 'completed',
-            completedBy: user.username,
-            completedAt: Date.now(),
-            completionNotes: notes,
-        };
-
-        const updatedImages = currentImages.filter(img => img.id !== id);
-        const updatedHistory = [completedImageRecord, ...currentHistory];
-
-        const [saveImagesResult, saveHistoryResult] = await Promise.all([
-            saveImageList(updatedImages, { type: 'complete', payload: { imageId: id, completedImage: completedImageRecord } }),
-            saveHistoryList(updatedHistory)
-        ]);
-
-        if (!saveImagesResult.success || !saveHistoryResult.success) {
-             throw new Error(saveImagesResult.error || saveHistoryResult.error || "无法更新列表。");
-        }
+      const { success, error } = await updateImage(completedImage);
+      if (!success) {
+        throw new Error(error || "无法更新列表。");
+      }
     } catch (error: any) {
          toast({
             variant: "destructive",
             title: "操作失败",
             description: error.message,
         });
-        const currentImages = await getImageList();
-        setImages(currentImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
+        // Rollback optimistic update
+        setImages(originalImages);
+        fetchInitialData(); // Refetch to be safe
     } finally {
         setIsSyncing(false);
     }
   };
 
   const handleDeleteImage = async (id: string) => {
+    const originalImages = [...images];
+    const imageToDelete = images.find(img => img.id === id);
+    if (!imageToDelete) {
+      toast({ variant: "destructive", title: "错误", description: "找不到要删除的记录。" });
+      return;
+    }
+
     setIsSyncing(true);
+    // Optimistic UI update
+    setImages(prev => prev.filter(img => img.id !== id));
+    
     try {
-      const currentImages = await getImageList();
-      const imageToDelete = currentImages.find(img => img.id === id);
-      if (!imageToDelete) {
-        toast({ variant: "destructive", title: "错误", description: "找不到要删除的记录。" });
-        return;
-      }
+      const { success, error } = await deleteImage(id);
 
-      const updatedImages = currentImages.filter(img => img.id !== id);
-      const { success: saveSuccess, error: saveError } = await saveImageList(updatedImages, {type: 'delete', payload: { imageId: id }});
-
-      if (!saveSuccess) {
-        throw new Error(saveError || "无法更新图片列表。");
+      if (!success) {
+        throw new Error(error || "无法更新图片列表。");
       }
     } catch (error: any) {
       toast({
@@ -283,8 +280,7 @@ export default function Dashboard() {
         title: "删除失败",
         description: error.message,
       });
-       const currentImages = await getImageList();
-       setImages(currentImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
+       setImages(originalImages);
     } finally {
       setIsSyncing(false);
     }

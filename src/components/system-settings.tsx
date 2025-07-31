@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { saveMaintenanceStatus, getUsers, getImageList, getHistoryList, ImageFile, StoredUser } from '@/services/webdav';
+import { saveMaintenanceStatus, getUsers, getImageList, getHistoryList, StoredUser } from '@/services/webdav';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -57,7 +57,7 @@ export default function SystemSettings() {
           users.forEach(u => {
             userStats[u.username] = { completed: 0, uploaded: 0 };
           });
-
+          
           const allItems = [...images, ...history];
 
           allItems.forEach(item => {

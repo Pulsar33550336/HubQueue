@@ -119,8 +119,7 @@ export default function UserManagement() {
     setUpdatingStates(prev => ({ ...prev, [`delete-${username}`]: true }));
     const originalUsers = [...users];
     const updatedUsers = users.filter(u => u.username !== username);
-    setUsers(updatedUsers);
-
+    
     const { success, error } = await saveUsers(updatedUsers);
     if (!success) {
         toast({
@@ -134,7 +133,7 @@ export default function UserManagement() {
             title: '删除成功',
             description: `用户 ${username} 已被删除。`,
         });
-        await fetchUsers();
+        setUsers(updatedUsers);
     }
     setUpdatingStates(prev => ({ ...prev, [`delete-${username}`]: false }));
   };
@@ -195,7 +194,7 @@ export default function UserManagement() {
                     </TableHeader>
                     <TableBody>
                     {users.map((u, index) => {
-                        const isInitialAdmin = index === 0;
+                        const isInitialAdmin = u.role === 'admin' && users.filter(x => x.role === 'admin').length === 1;
                         const isSelf = u.username === user?.username;
                         return (
                             <TableRow key={u.username} className={u.role === 'banned' ? 'bg-destructive/10' : ''}>
