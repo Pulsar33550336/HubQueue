@@ -3,15 +3,17 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { saveMaintenanceStatus, getUsers, getImageList, getHistoryList, StoredUser } from '@/services/webdav';
+import { saveSystemSettings, getUsers, getImageList, getHistoryList, StoredUser, SystemSettings } from '@/services/webdav';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from './ui/skeleton';
-import { Wrench, CheckCircle, Upload } from 'lucide-react';
+import { Wrench, CheckCircle, Upload, Loader2, Save, AlarmClockOff } from 'lucide-react';
 import { Label } from './ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Input } from './ui/input';
+import { Button } from './ui/button';
 
 interface UserStats {
   completed: number;
@@ -25,7 +27,8 @@ interface AllStats {
 }
 
 export default function SystemSettings() {
-  const { user, isMaintenanceMode, setMaintenanceMode, isLoading: isAuthLoading } = useAuth();
+  const { user, settings, setSettings, isLoading: isAuthLoading } = useAuth();
+  const [localSettings, setLocalSettings] = useState<SystemSettings | null>(settings);
   const [updatingStates, setUpdatingStates] = useState<Record<string, boolean>>({});
   const [stats, setStats] = useState<AllStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -41,6 +44,10 @@ export default function SystemSettings() {
       }
     }
   }, [user, isAuthLoading, router]);
+  
+  useEffect(() => {
+    setLocalSettings(settings);
+  }, [settings]);
 
   useEffect(() => {
     async function fetchAndComputeStats() {
@@ -99,23 +106,41 @@ export default function SystemSettings() {
   }, [user, toast]);
 
   const handleMaintenanceToggle = async (isMaintenance: boolean) => {
-    setUpdatingStates(prev => ({ ...prev, maintenance: true }));
-    setMaintenanceMode(isMaintenance);
-    const { success, error } = await saveMaintenanceStatus({ isMaintenance });
+    if (!localSettings) return;
+    const newSettings = { ...localSettings, isMaintenance };
+    setLocalSettings(newSettings);
+    await handleSaveSettings(newSettings, 'maintenance');
+  };
+
+  const handleDaysChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!localSettings) return;
+    const value = e.target.value;
+    // Allow empty input for easier editing, but store as 0
+    const days = value === '' ? 0 : parseInt(value, 10);
+    if (!isNaN(days) && days >= 0) {
+        setLocalSettings({ ...localSettings, selfDestructDays: days });
+    }
+  };
+
+  const handleSaveSettings = async (settingsToSave: SystemSettings, key?: string) => {
+    const stateKey = key || 'all';
+    setUpdatingStates(prev => ({ ...prev, [stateKey]: true }));
+    const { success, error } = await saveSystemSettings(settingsToSave);
      if (!success) {
         toast({
             variant: 'destructive',
             title: '操作失败',
-            description: error || '无法更新维护状态。',
+            description: error || '无法更新系统设置。',
         });
-        setMaintenanceMode(!isMaintenance);
+        setLocalSettings(settings); // Revert to original settings on failure
     } else {
          toast({
             title: '操作成功',
-            description: `网站维护模式已${isMaintenance ? '开启' : '关闭'}。`,
+            description: `系统设置已更新。`,
         });
+        setSettings(settingsToSave); // Update global context on success
     }
-    setUpdatingStates(prev => ({ ...prev, maintenance: false }));
+    setUpdatingStates(prev => ({ ...prev, [stateKey]: false }));
   }
 
   const sortedUsers = stats ? Object.entries(stats.userStats).sort(([, a], [, b]) => b.completed - a.completed) : [];
@@ -151,7 +176,7 @@ export default function SystemSettings() {
     </div>
   );
 
-  if (isAuthLoading || isLoading) {
+  if (isAuthLoading || isLoading || !localSettings) {
     return renderSkeleton();
   }
 
@@ -170,7 +195,7 @@ export default function SystemSettings() {
         
         <Card>
             <CardHeader>
-                <CardTitle>系统设置</CardTitle>
+                <CardTitle>通用设置</CardTitle>
                 <CardDescription>管理应用程序范围的设置。</CardDescription>
             </CardHeader>
             <CardContent>
@@ -184,13 +209,46 @@ export default function SystemSettings() {
                     </div>
                     <Switch
                         id="maintenance-mode"
-                        checked={isMaintenanceMode}
+                        checked={localSettings.isMaintenance}
                         onCheckedChange={handleMaintenanceToggle}
                         disabled={updatingStates['maintenance']}
                         aria-label="Toggle maintenance mode"
                     />
                 </div>
             </CardContent>
+        </Card>
+        
+        <Card>
+            <CardHeader>
+                <CardTitle>自毁设置</CardTitle>
+                <CardDescription>配置不活跃自毁计时器。此操作基于系统中所有用户最新的上传或完成时间。</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-4">
+                    <div className="flex items-start gap-4">
+                         <AlarmClockOff className="h-6 w-6 text-muted-foreground mt-2" />
+                        <div className='w-full'>
+                            <Label htmlFor="self-destruct-days" className="font-semibold">不活跃天数</Label>
+                             <p className="text-sm text-muted-foreground mb-2">当系统连续多少天没有新活动（上传或完成）后触发自毁。</p>
+                            <Input 
+                                id="self-destruct-days"
+                                type="number"
+                                value={localSettings.selfDestructDays}
+                                onChange={handleDaysChange}
+                                className="w-48"
+                                placeholder="例如: 5"
+                                min="1"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </CardContent>
+             <CardFooter className="border-t px-6 py-4">
+                <Button onClick={() => handleSaveSettings(localSettings, 'selfDestruct')} disabled={updatingStates['selfDestruct']}>
+                  {updatingStates['selfDestruct'] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  保存自毁设置
+                </Button>
+            </CardFooter>
         </Card>
 
         <Card>

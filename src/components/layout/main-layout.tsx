@@ -5,15 +5,24 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import Header from "@/components/header";
+<<<<<<< HEAD
+import MaintenancePage from "../maintenance-page";
+import SelfDestructPage from "../self-destruct-page";
+=======
 import { Skeleton } from "../ui/skeleton";
 import MaintenancePage from "../maintenance-page";
+>>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
 
 export default function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+<<<<<<< HEAD
+  const { user, isLoading, isMaintenanceMode, isSelfDestructed } = useAuth();
+=======
   const { user, isLoading, isMaintenanceMode } = useAuth();
+>>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
   const router = useRouter();
   const pathname = usePathname();
 
@@ -25,6 +34,19 @@ export default function MainLayout({
   }, [user, isLoading, router, pathname]);
 
   if (isLoading) {
+<<<<<<< HEAD
+    return <div className="w-screen h-screen bg-background" />;
+  }
+  
+  if (isSelfDestructed) {
+    return <SelfDestructPage />;
+  }
+
+  if (!user) {
+    // This case should theoretically be covered by the useEffect redirect,
+    // but as a fallback, we can show a blank page.
+    return <div className="w-screen h-screen bg-background" />;
+=======
     return (
         <div className="flex flex-col min-h-screen">
             <header className="bg-card border-b">
@@ -89,6 +111,7 @@ export default function MainLayout({
             </main>
         </div>
     );
+>>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
   }
 
   if (isMaintenanceMode && !user.isAdmin) {

@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+
+=======
+>>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -10,14 +14,23 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+<<<<<<< HEAD
+import Logo from '@/components/logo';
+import SelfDestructPage from '@/components/self-destruct-page';
+=======
 import { Skeleton } from '@/components/ui/skeleton';
 import Logo from '@/components/logo';
+>>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
 
 export default function RegisterPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
+<<<<<<< HEAD
+  const { register, user, isLoading: isAuthLoading, isSelfDestructed } = useAuth();
+=======
   const { register, user, isLoading: isAuthLoading } = useAuth();
+>>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
   const router = useRouter();
   const { toast } = useToast();
 
@@ -52,6 +65,18 @@ export default function RegisterPage() {
     }
   };
   
+<<<<<<< HEAD
+  if (isAuthLoading) {
+    return <div className="w-screen h-screen bg-background" />;
+  }
+
+  if (isSelfDestructed) {
+    return <SelfDestructPage />;
+  }
+
+  if (user) {
+    return <div className="w-screen h-screen bg-background" />;
+=======
   if (isAuthLoading || (!isAuthLoading && user)) {
     return (
         <div className="flex items-center justify-center min-h-screen bg-background">
@@ -83,6 +108,7 @@ export default function RegisterPage() {
             </Card>
         </div>
      );
+>>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
   }
 
   return (

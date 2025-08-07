@@ -6,12 +6,16 @@ import { webdavConfig } from '@/config/webdav';
 import type { ImageFile } from '@/types';
 import Ably from 'ably';
 
-// Define types locally since sqlite.ts is removed
+// Define types locally
 export type UserRole = 'admin' | 'trusted' | 'user' | 'banned';
 export interface StoredUser {
   username: string;
   passwordHash: string;
   role: UserRole;
+}
+export interface SystemSettings {
+    isMaintenance: boolean;
+    selfDestructDays: number;
 }
 
 
@@ -22,7 +26,7 @@ const ABLY_CHANNEL_NAME = 'hubqueue:updates';
 const USERS_FILE = '/users.json';
 const IMAGES_FILE = '/images.json';
 const HISTORY_FILE = '/history.json';
-const MAINTENANCE_FILE = '/maintenance.json';
+const SETTINGS_FILE = '/system_settings.json';
 const UPLOADS_DIR = '/uploads';
 const LOCK_FILE = '/~lock';
 
@@ -42,18 +46,17 @@ function getWebdavClient(): WebDAVClient {
 const acquireLock = async (client: WebDAVClient, retries = 5, delay = 200): Promise<boolean> => {
   for (let i = 0; i < retries; i++) {
     try {
-      // The 'wx' flag means "write if not exists", which is an atomic operation for locking.
       await client.putFileContents(LOCK_FILE, '', { flag: 'wx' });
-      return true; // Lock acquired
+      return true;
     } catch (error: any) {
-      if (error.status === 412) { // Precondition Failed - lock file exists
+      if (error.status === 412) {
         await new Promise(resolve => setTimeout(resolve, delay));
       } else {
-        throw error; // Other unexpected error
+        throw error;
       }
     }
   }
-  return false; // Failed to acquire lock
+  return false;
 };
 
 const releaseLock = async (client: WebDAVClient) => {
@@ -70,12 +73,8 @@ const releaseLock = async (client: WebDAVClient) => {
 // --- Ably Notifications ---
 
 async function notifyQueueUpdate(client: WebDAVClient) {
-  if (!ABLY_API_KEY) {
-    console.warn("Ably API Key not found, skipping notification.");
-    return;
-  }
+  if (!ABLY_API_KEY) return;
   try {
-    // Read the latest state of both lists to send the complete data
     const [images, history] = await Promise.all([
         readFile<ImageFile[]>(client, IMAGES_FILE, []),
         readFile<ImageFile[]>(client, HISTORY_FILE, [])
@@ -91,7 +90,6 @@ async function notifyQueueUpdate(client: WebDAVClient) {
         url: `/api/image?path=${encodeURIComponent(img.webdavPath)}`
     }));
 
-
     const ably = new Ably.Rest(ABLY_API_KEY);
     const channel = ably.channels.get(ABLY_CHANNEL_NAME);
     await channel.publish('queue_updated', { images: imagesWithUrls, history: historyWithUrls });
@@ -101,10 +99,7 @@ async function notifyQueueUpdate(client: WebDAVClient) {
 }
 
 async function notifySystemUpdate() {
-   if (!ABLY_API_KEY) {
-    console.warn("Ably API Key not found, skipping notification.");
-    return;
-  }
+   if (!ABLY_API_KEY) return;
   try {
     const ably = new Ably.Rest(ABLY_API_KEY);
     const channel = ably.channels.get(ABLY_CHANNEL_NAME);
@@ -237,16 +232,16 @@ export async function updateImage(image: ImageFile): Promise<{success: boolean, 
                  await notifyQueueUpdate(client);
                  return { success: true };
             } else {
-                console.error(`CRITICAL: Failed to complete image transaction for ID ${image.id}. Images file success: ${saveImagesResult.success}, History file success: ${saveHistoryResult.success}`);
+                console.error(`CRITICAL: Failed to complete image transaction for ID ${image.id}.`);
                 return { success: false, error: 'Failed to complete image transaction.' };
             }
 
         } else {
+
             const images = await readFile<ImageFile[]>(client, IMAGES_FILE, []);
             const imageIndex = images.findIndex(img => img.id === image.id);
             if (imageIndex === -1) return { success: false, error: 'Image not found in queue.' };
             
-            // Do not store the full URL
             const { url, ...imageToStore } = image;
             images[imageIndex] = { ...images[imageIndex], ...imageToStore };
 
@@ -266,6 +261,7 @@ export async function deleteImage(id: string): Promise<{success: boolean, error?
     if (!await acquireLock(client)) return { success: false, error: 'Could not acquire a lock to delete image. Please try again.' };
 
     try {
+
         const images = await readFile<ImageFile[]>(client, IMAGES_FILE, []);
         const filteredImages = images.filter(img => img.id !== id);
 
@@ -294,14 +290,15 @@ export async function getHistoryList(): Promise<ImageFile[]> {
 }
 
 
-export async function getMaintenanceStatus(): Promise<{ isMaintenance: boolean }> {
+export async function getSystemSettings(): Promise<SystemSettings> {
     const client = getWebdavClient();
-    return readFile<{ isMaintenance: boolean }>(client, MAINTENANCE_FILE, { isMaintenance: false });
+    const defaultSettings: SystemSettings = { isMaintenance: false, selfDestructDays: 5 };
+    return readFile<SystemSettings>(client, SETTINGS_FILE, defaultSettings);
 }
 
-export async function saveMaintenanceStatus(status: { isMaintenance: boolean }): Promise<{ success: boolean, error?: string }> {
+export async function saveSystemSettings(settings: SystemSettings): Promise<{ success: boolean, error?: string }> {
     const client = getWebdavClient();
-    const result = await writeFile(client, MAINTENANCE_FILE, status);
+    const result = await writeFile(client, SETTINGS_FILE, settings);
     if(result.success) {
         await notifySystemUpdate();
     }
@@ -330,4 +327,38 @@ export async function uploadToWebdav(fileName: string, dataUrl: string): Promise
     console.error('Failed to upload to WebDAV', error);
     return { success: false, error: error.message || 'An unknown error occurred during upload.' };
   }
+}
+
+export async function checkSelfDestructStatus(): Promise<{ selfDestruct: boolean }> {
+    const lastTime = await getLastUploadTime();
+    if (lastTime === null) {
+        return { selfDestruct: false };
+    }
+    const settings = await getSystemSettings();
+    const selfDestructDays = settings.selfDestructDays || 5;
+
+    const deadline = Date.now() - (selfDestructDays * 24 * 60 * 60 * 1000);
+    return { selfDestruct: lastTime < deadline };
+}
+
+export async function getLastUploadTime(): Promise<number | null> {
+    const client = getWebdavClient();
+    const [images, history] = await Promise.all([
+        readFile<ImageFile[]>(client, IMAGES_FILE, []),
+        readFile<ImageFile[]>(client, HISTORY_FILE, [])
+    ]);
+    
+    const allItems = [...images, ...history];
+    if (allItems.length === 0) {
+        return null;
+    }
+
+    const mostRecentTimestamp = allItems.reduce((latest, item) => {
+        const createdAt = item.createdAt || 0;
+        const completedAt = item.completedAt || 0;
+        const mostRecentForItem = Math.max(createdAt, completedAt);
+        return mostRecentForItem > latest ? mostRecentForItem : latest;
+    }, 0);
+
+    return mostRecentTimestamp > 0 ? mostRecentTimestamp : null;
 }

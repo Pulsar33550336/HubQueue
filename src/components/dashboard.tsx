@@ -8,10 +8,128 @@ import { ImageQueue } from './image-queue';
 import { useToast } from "@/hooks/use-toast";
 import { getImageList, getHistoryList, addImage, updateImage, deleteImage } from '@/services/webdav';
 import { Skeleton } from './ui/skeleton';
+<<<<<<< HEAD
+import { RefreshCw, AlertTriangle } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { getSoundPreference, getNotificationPreference } from '@/lib/preferences';
+import Ably from 'ably';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Progress } from './ui/progress';
+import { format } from 'date-fns';
+
+
+function SelfDestructTimer() {
+  const { lastUploadTime, settings } = useAuth();
+  const [timeLeft, setTimeLeft] = useState('');
+  const [urgency, setUrgency] = useState('normal'); // 'normal', 'warning', 'danger'
+  const [progress, setProgress] = useState(0);
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [endTime, setEndTime] = useState<number | null>(null);
+
+  const selfDestructDays = settings?.selfDestructDays ?? 5;
+  const selfDestructMillis = selfDestructDays * 24 * 60 * 60 * 1000;
+
+  useEffect(() => {
+    const updateTimer = () => {
+      const now = Date.now();
+      
+      if (lastUploadTime === null) {
+        setTimeLeft(`${String(selfDestructDays).padStart(2, '0')}:00:00:00`);
+        setUrgency('normal');
+        setProgress(0);
+        setStartTime(null);
+        setEndTime(now + selfDestructMillis);
+        return;
+      }
+      
+      const deadline = lastUploadTime + selfDestructMillis;
+
+      setStartTime(lastUploadTime);
+      setEndTime(deadline);
+      
+      const remaining = deadline - now;
+      
+      if (remaining > selfDestructMillis) {
+         setTimeLeft(`${String(selfDestructDays).padStart(2, '0')}:00:00:00`);
+         setUrgency('normal');
+         setProgress(0);
+         return;
+      }
+
+      if (remaining <= 0) {
+        setTimeLeft('00:00:00:00');
+        setUrgency('danger');
+        setProgress(100);
+        return;
+      }
+      
+      const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+
+      setTimeLeft(
+        `${String(days).padStart(2, '0')}:${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+      );
+      
+      const totalDuration = deadline - lastUploadTime;
+      const elapsed = now - lastUploadTime;
+      setProgress(Math.min(100, (elapsed / totalDuration) * 100));
+
+      // Urgency based on percentage of time passed, more flexible than hardcoded days
+      if (progress > 80) {
+        setUrgency('danger');
+      } else if (progress > 50) {
+        setUrgency('warning');
+      } else {
+        setUrgency('normal');
+      }
+    };
+    
+    updateTimer();
+    const timerInterval = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(timerInterval);
+  }, [lastUploadTime, progress, selfDestructDays, selfDestructMillis]);
+
+  const urgencyStyles = {
+    normal: 'text-primary',
+    warning: 'text-yellow-500',
+    danger: 'text-destructive animate-pulse',
+  };
+
+  const formattedStartTime = startTime ? format(new Date(startTime), 'yyyy-MM-dd HH:mm') : 'N/A';
+  const formattedEndTime = endTime ? format(new Date(endTime), 'yyyy-MM-dd HH:mm') : '计算中...';
+
+
+  return (
+    <Card className="mb-8">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">系统自毁倒计时</CardTitle>
+        <AlertTriangle className={`h-4 w-4 ${urgencyStyles[urgency]}`} />
+      </CardHeader>
+      <CardContent>
+        <div className={`text-2xl font-bold ${urgencyStyles[urgency]}`}>
+            {timeLeft || '计算中...'}
+        </div>
+        <p className="text-xs text-muted-foreground mb-4">
+          若连续{selfDestructDays}天无新活动，系统将自毁。
+        </p>
+        <Progress value={progress} className="w-full h-2 mb-2" />
+        <div className="flex justify-between text-xs text-muted-foreground">
+            <span>最后活跃: {formattedStartTime}</span>
+            <span>预计自毁: {formattedEndTime}</span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+=======
 import { RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { getSoundPreference, getNotificationPreference } from '@/lib/preferences';
 import Ably from 'ably';
+>>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
 
 
 export default function Dashboard() {
@@ -302,6 +420,10 @@ export default function Dashboard() {
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
+<<<<<<< HEAD
+      <SelfDestructTimer />
+=======
+>>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
       <ImageUploader onImageUploaded={handleImageUploaded} />
       {isLoading ? (
         <div className="mt-8">

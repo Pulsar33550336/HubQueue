@@ -12,6 +12,10 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Wrench } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+<<<<<<< HEAD
+import Logo from '@/components/logo';
+import SelfDestructPage from './self-destruct-page';
+=======
 import { Skeleton } from '@/components/ui/skeleton';
 import Logo from '@/components/logo';
 
@@ -47,12 +51,17 @@ function LoginSkeleton() {
         </div>
      );
   }
+>>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
 
 export default function LoginForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+<<<<<<< HEAD
+  const { login, user, isLoading: isAuthLoading, isMaintenanceMode, isSelfDestructed } = useAuth();
+=======
   const { login, user, isLoading: isAuthLoading, isMaintenanceMode } = useAuth();
+>>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -86,8 +95,21 @@ export default function LoginForm() {
     }
   };
 
+<<<<<<< HEAD
+  if (isAuthLoading) {
+     return <div className="w-screen h-screen bg-background" />;
+  }
+
+  if (isSelfDestructed) {
+    return <SelfDestructPage />;
+  }
+  
+  if (user) {
+    return <div className="w-screen h-screen bg-background" />;
+=======
   if (isAuthLoading || (!isAuthLoading && user)) {
      return <LoginSkeleton />;
+>>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
   }
 
   return (

@@ -3,7 +3,15 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import Cookies from 'js-cookie';
+<<<<<<< HEAD
+<<<<<<< HEAD
+import { getUsers, StoredUser, getMaintenanceStatus, addUser, UserRole, saveUsers, checkSelfDestructStatus, getLastUploadTime } from '@/services/webdav'; 
+=======
 import { getUsers, StoredUser, getMaintenanceStatus, addUser, UserRole, saveUsers } from '@/services/webdav'; 
+>>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
+=======
+import { getUsers, StoredUser, getSystemSettings, SystemSettings, addUser, UserRole, saveUsers, checkSelfDestructStatus, getLastUploadTime } from '@/services/webdav'; 
+>>>>>>> 150a881 (自毁时间可以自定义，不是固定的五天，但必须是从最后活跃开始算起，只能自定义偏移时间。精准到天数)
 
 interface User {
   username: string;
@@ -14,13 +22,19 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
+  settings: SystemSettings | null;
   isMaintenanceMode: boolean;
+<<<<<<< HEAD
+  isSelfDestructed: boolean;
+  lastUploadTime: number | null;
+=======
+>>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
   login: (username: string, password_input: string) => Promise<{success: boolean, message?: string}>;
   logout: () => void;
   register: (username: string, password_input: string) => Promise<{ success: boolean; message: string }>;
   isLoading: boolean;
   updateUserStatus: (username: string) => Promise<void>;
-  setMaintenanceMode: (isMaintenance: boolean) => void;
+  setSettings: (settings: SystemSettings) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -47,7 +61,21 @@ async function hashPassword(password: string): Promise<string> {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+<<<<<<< HEAD
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
+<<<<<<< HEAD
+=======
+  const [settings, setSettings] = useState<SystemSettings | null>(null);
+>>>>>>> 150a881 (自毁时间可以自定义，不是固定的五天，但必须是从最后活跃开始算起，只能自定义偏移时间。精准到天数)
+  const [isSelfDestructed, setIsSelfDestructed] = useState(false);
+  const [lastUploadTime, setLastUploadTime] = useState<number | null>(null);
+  
+  const isMaintenanceMode = settings?.isMaintenance ?? false;
+
+  const verifyAndSetUser = async (username: string, hash: string): Promise<boolean> => {
+    try {
+      const users = await getUsers();
+=======
 
   const verifyAndSetUser = async (username: string, hash: string): Promise<boolean> => {
     try {
@@ -56,6 +84,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         getMaintenanceStatus(),
       ]);
 
+>>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
       const foundUser = users.find(u => u.username === username && u.passwordHash === hash);
       if (foundUser) {
         if (foundUser.role === 'banned') {
@@ -71,13 +100,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
           isTrusted: foundUser.role === 'admin' || foundUser.role === 'trusted', 
         };
         setUser(userData);
+<<<<<<< HEAD
+<<<<<<< HEAD
+        // Maintenance status is loaded once at startup
+=======
         setIsMaintenanceMode(maintenanceStatus.isMaintenance);
+>>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
+=======
+>>>>>>> 150a881 (自毁时间可以自定义，不是固定的五天，但必须是从最后活跃开始算起，只能自定义偏移时间。精准到天数)
         return true;
       }
     } catch (error) {
       console.error("Failed to fetch user data during verification", error);
     }
-    // If verification fails, ensure user is logged out.
     Cookies.remove(USER_COOKIE_KEY);
     setUser(null);
     return false;
@@ -85,35 +120,62 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
 
   useEffect(() => {
-    const loadUserFromCookie = async () => {
+    const loadInitialData = async () => {
       setIsLoading(true);
       try {
+<<<<<<< HEAD
+<<<<<<< HEAD
+          const [selfDestructStatus, lastUpload, maintenanceStatus] = await Promise.all([
+=======
+          const [selfDestructStatus, lastUpload, systemSettings] = await Promise.all([
+>>>>>>> 150a881 (自毁时间可以自定义，不是固定的五天，但必须是从最后活跃开始算起，只能自定义偏移时间。精准到天数)
+             checkSelfDestructStatus(),
+             getLastUploadTime(),
+             getSystemSettings()
+          ]);
+          setLastUploadTime(lastUpload);
+          setSettings(systemSettings);
+          
+          if (selfDestructStatus.selfDestruct) {
+            setIsSelfDestructed(true);
+            setIsLoading(false);
+            return;
+          }
+
+=======
+>>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
           const storedSession = Cookies.get(USER_COOKIE_KEY);
           if (storedSession) {
             const sessionData: SessionData = JSON.parse(storedSession);
             if (sessionData.username && sessionData.hash) {
                 await verifyAndSetUser(sessionData.username, sessionData.hash);
             } else {
+<<<<<<< HEAD
+=======
                // If cookie is invalid, still check maintenance status for public view
                const status = await getMaintenanceStatus();
                setIsMaintenanceMode(status.isMaintenance);
+>>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
                setUser(null);
                Cookies.remove(USER_COOKIE_KEY);
             }
           } else {
+<<<<<<< HEAD
+=======
              const status = await getMaintenanceStatus();
              setIsMaintenanceMode(status.isMaintenance);
+>>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
              setUser(null);
           }
       } catch (error) {
-          console.error("Failed to process user from cookie", error);
-          logout(); // This will clear cookie and user state
+          console.error("Failed to process initial data", error);
+          logout();
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadUserFromCookie();
+    loadInitialData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -122,7 +184,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const storedSession = Cookies.get(USER_COOKIE_KEY);
       if (storedSession) {
         const sessionData: SessionData = JSON.parse(storedSession);
-        // Just re-verify and set the user, don't trigger loading state if not necessary
         await verifyAndSetUser(sessionData.username, sessionData.hash);
       }
     }
@@ -149,9 +210,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const sessionData: SessionData = { username: foundUser.username, hash: foundUser.passwordHash };
         Cookies.set(USER_COOKIE_KEY, JSON.stringify(sessionData), { expires: 7 }); 
         setUser(userData);
-        // Also fetch maintenance status on login
-        const status = await getMaintenanceStatus();
-        setIsMaintenanceMode(status.isMaintenance);
+        const systemSettings = await getSystemSettings();
+        setSettings(systemSettings);
         return { success: true };
       }
       return { success: false, message: '无效的用户名或密码。' };
@@ -197,8 +257,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
             const sessionData: SessionData = { username: newUser.username, hash: newUser.passwordHash };
             Cookies.set(USER_COOKIE_KEY, JSON.stringify(sessionData), { expires: 7 });
             setUser(userData);
-            const status = await getMaintenanceStatus();
-            setIsMaintenanceMode(status.isMaintenance);
+            const systemSettings = await getSystemSettings();
+            setSettings(systemSettings);
             return { success: true, message: "注册成功！" };
         } else {
             return { success: false, message: error || "无法保存用户数据。" };
@@ -216,7 +276,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(null);
   };
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+  const value = { user, isMaintenanceMode, isSelfDestructed, lastUploadTime, login, logout, register, isLoading, updateUserStatus, setMaintenanceMode: setIsMaintenanceMode };
+=======
   const value = { user, isMaintenanceMode, login, logout, register, isLoading, updateUserStatus, setMaintenanceMode: setIsMaintenanceMode };
+>>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
+=======
+  const value = { user, settings, setSettings, isMaintenanceMode, isSelfDestructed, lastUploadTime, login, logout, register, isLoading, updateUserStatus };
+>>>>>>> 150a881 (自毁时间可以自定义，不是固定的五天，但必须是从最后活跃开始算起，只能自定义偏移时间。精准到天数)
 
   return (
     <AuthContext.Provider value={value}>
