@@ -3,15 +3,16 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import Cookies from 'js-cookie';
-<<<<<<< HEAD
-<<<<<<< HEAD
-import { getUsers, StoredUser, getMaintenanceStatus, addUser, UserRole, saveUsers, checkSelfDestructStatus, getLastUploadTime } from '@/services/webdav'; 
-=======
-import { getUsers, StoredUser, getMaintenanceStatus, addUser, UserRole, saveUsers } from '@/services/webdav'; 
->>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
-=======
-import { getUsers, StoredUser, getSystemSettings, SystemSettings, addUser, UserRole, saveUsers, checkSelfDestructStatus, getLastUploadTime } from '@/services/webdav'; 
->>>>>>> 150a881 (自毁时间可以自定义，不是固定的五天，但必须是从最后活跃开始算起，只能自定义偏移时间。精准到天数)
+import {
+  getSystemSettings,
+  addUser,
+  StoredUser,
+  UserRole,
+  getLastUploadTime,
+  checkSelfDestructStatus,
+  getUsers
+} from '@/services/db';
+import { SystemSettings } from '@/types';
 
 interface User {
   username: string;
@@ -29,7 +30,7 @@ interface AuthContextType {
   lastUploadTime: number | null;
 =======
 >>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
-  login: (username: string, password_input: string) => Promise<{success: boolean, message?: string}>;
+  login: (username: string, password_input: string) => Promise<{ success: boolean, message?: string }>;
   logout: () => void;
   register: (username: string, password_input: string) => Promise<{ success: boolean; message: string }>;
   isLoading: boolean;
@@ -41,8 +42,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const USER_COOKIE_KEY = 'hubqueue_session';
 
 interface SessionData {
-    username: string;
-    hash: string;
+  username: string;
+  hash: string;
 }
 
 interface AuthProviderProps {
@@ -50,12 +51,12 @@ interface AuthProviderProps {
 }
 
 async function hashPassword(password: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password);
-    const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    return hashHex;
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex;
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
@@ -69,7 +70,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 >>>>>>> 150a881 (自毁时间可以自定义，不是固定的五天，但必须是从最后活跃开始算起，只能自定义偏移时间。精准到天数)
   const [isSelfDestructed, setIsSelfDestructed] = useState(false);
   const [lastUploadTime, setLastUploadTime] = useState<number | null>(null);
-  
+
   const isMaintenanceMode = settings?.isMaintenance ?? false;
 
   const verifyAndSetUser = async (username: string, hash: string): Promise<boolean> => {
@@ -88,16 +89,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const foundUser = users.find(u => u.username === username && u.passwordHash === hash);
       if (foundUser) {
         if (foundUser.role === 'banned') {
-           Cookies.remove(USER_COOKIE_KEY);
-           setUser(null);
-           return false;
+          Cookies.remove(USER_COOKIE_KEY);
+          setUser(null);
+          return false;
         }
 
-        const userData = { 
-          username: foundUser.username, 
+        const userData = {
+          username: foundUser.username,
           role: foundUser.role,
-          isAdmin: foundUser.role === 'admin', 
-          isTrusted: foundUser.role === 'admin' || foundUser.role === 'trusted', 
+          isAdmin: foundUser.role === 'admin',
+          isTrusted: foundUser.role === 'admin' || foundUser.role === 'trusted',
         };
         setUser(userData);
 <<<<<<< HEAD
@@ -125,58 +126,59 @@ export function AuthProvider({ children }: AuthProviderProps) {
       try {
 <<<<<<< HEAD
 <<<<<<< HEAD
-          const [selfDestructStatus, lastUpload, maintenanceStatus] = await Promise.all([
+        const [selfDestructStatus, lastUpload, maintenanceStatus] = await Promise.all([
 =======
           const [selfDestructStatus, lastUpload, systemSettings] = await Promise.all([
 >>>>>>> 150a881 (自毁时间可以自定义，不是固定的五天，但必须是从最后活跃开始算起，只能自定义偏移时间。精准到天数)
-             checkSelfDestructStatus(),
-             getLastUploadTime(),
-             getSystemSettings()
-          ]);
-          setLastUploadTime(lastUpload);
-          setSettings(systemSettings);
-          
-          if (selfDestructStatus.selfDestruct) {
-            setIsSelfDestructed(true);
-            setIsLoading(false);
-            return;
-          }
+          checkSelfDestructStatus(),
+          getLastUploadTime(),
+          getSystemSettings()
+        ]);
+        setLastUploadTime(lastUpload);
+        setSettings(systemSettings);
+
+        if (selfDestructStatus.selfDestruct) {
+          setIsSelfDestructed(true);
+          setIsLoading(false);
+          return;
+        }
 
 =======
 >>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
-          const storedSession = Cookies.get(USER_COOKIE_KEY);
-          if (storedSession) {
-            const sessionData: SessionData = JSON.parse(storedSession);
-            if (sessionData.username && sessionData.hash) {
-                await verifyAndSetUser(sessionData.username, sessionData.hash);
-            } else {
+        const storedSession = Cookies.get(USER_COOKIE_KEY);
+        if (storedSession) {
+          const sessionData: SessionData = JSON.parse(storedSession);
+          if (sessionData.username && sessionData.hash) {
+            await verifyAndSetUser(sessionData.username, sessionData.hash);
+          } else {
 <<<<<<< HEAD
 =======
                // If cookie is invalid, still check maintenance status for public view
                const status = await getMaintenanceStatus();
                setIsMaintenanceMode(status.isMaintenance);
 >>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
-               setUser(null);
-               Cookies.remove(USER_COOKIE_KEY);
-            }
-          } else {
+            setUser(null);
+            Cookies.remove(USER_COOKIE_KEY);
+          }
+        } else {
 <<<<<<< HEAD
 =======
              const status = await getMaintenanceStatus();
              setIsMaintenanceMode(status.isMaintenance);
 >>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
-             setUser(null);
-          }
+          setUser(null);
+        }
       } catch (error) {
-          console.error("Failed to process initial data", error);
-          logout();
+        console.error("Failed to process initial data", error);
+        // Don't auto-logout on server-side errors, just clear user state
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadInitialData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const updateUserStatus = async (username: string) => {
@@ -188,8 +190,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     }
   };
-  
-  const login = async (username: string, password_input: string): Promise<{success: boolean, message?: string}> => {
+
+  const login = async (username: string, password_input: string): Promise<{ success: boolean, message?: string }> => {
     setIsLoading(true);
     try {
       const users = await getUsers();
@@ -198,17 +200,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       if (foundUser) {
         if (foundUser.role === 'banned') {
-            return { success: false, message: '您的账户已被封禁。' };
+          return { success: false, message: '您的账户已被封禁。' };
         }
 
-        const userData = { 
-          username: foundUser.username, 
+        const userData = {
+          username: foundUser.username,
           role: foundUser.role,
           isAdmin: foundUser.role === 'admin',
           isTrusted: foundUser.role === 'admin' || foundUser.role === 'trusted'
         };
         const sessionData: SessionData = { username: foundUser.username, hash: foundUser.passwordHash };
-        Cookies.set(USER_COOKIE_KEY, JSON.stringify(sessionData), { expires: 7 }); 
+        Cookies.set(USER_COOKIE_KEY, JSON.stringify(sessionData), { expires: 7 });
         setUser(userData);
         const systemSettings = await getSystemSettings();
         setSettings(systemSettings);
@@ -225,48 +227,48 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const register = async (username: string, password_input: string): Promise<{ success: boolean; message: string }> => {
     if (!username || !password_input) {
-        return { success: false, message: "用户名和密码不能为空。" };
+      return { success: false, message: "用户名和密码不能为空。" };
     }
-    
+
     setIsLoading(true);
     try {
-        const users = await getUsers();
+      const users = await getUsers();
 
-        if (users.find(u => u.username === username)) {
-            return { success: false, message: "该用户名已存在。" };
-        }
+      if (users.find(u => u.username === username)) {
+        return { success: false, message: "该用户名已存在。" };
+      }
 
-        const role: UserRole = users.length === 0 ? 'admin' : 'user';
-        const passwordHash = await hashPassword(password_input);
+      const role: UserRole = users.length === 0 ? 'admin' : 'user';
+      const passwordHash = await hashPassword(password_input);
 
-        const newUser: StoredUser = {
-            username,
-            passwordHash,
-            role,
+      const newUser: StoredUser = {
+        username,
+        passwordHash,
+        role,
+      };
+
+      const { success, error } = await addUser(newUser);
+
+      if (success) {
+        const userData = {
+          username: newUser.username,
+          role: newUser.role,
+          isAdmin: newUser.role === 'admin',
+          isTrusted: newUser.role === 'admin' || newUser.role === 'trusted'
         };
-        
-        const { success, error } = await addUser(newUser);
-
-        if (success) {
-            const userData = { 
-                username: newUser.username,
-                role: newUser.role,
-                isAdmin: newUser.role === 'admin',
-                isTrusted: newUser.role === 'admin' || newUser.role === 'trusted'
-            };
-            const sessionData: SessionData = { username: newUser.username, hash: newUser.passwordHash };
-            Cookies.set(USER_COOKIE_KEY, JSON.stringify(sessionData), { expires: 7 });
-            setUser(userData);
-            const systemSettings = await getSystemSettings();
-            setSettings(systemSettings);
-            return { success: true, message: "注册成功！" };
-        } else {
-            return { success: false, message: error || "无法保存用户数据。" };
-        }
+        const sessionData: SessionData = { username: newUser.username, hash: newUser.passwordHash };
+        Cookies.set(USER_COOKIE_KEY, JSON.stringify(sessionData), { expires: 7 });
+        setUser(userData);
+        const systemSettings = await getSystemSettings();
+        setSettings(systemSettings);
+        return { success: true, message: "注册成功！" };
+      } else {
+        return { success: false, message: error || "无法保存用户数据。" };
+      }
     } catch (error: any) {
-        return { success: false, message: error.message || "发生未知错误。" };
+      return { success: false, message: error.message || "发生未知错误。" };
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   };
 

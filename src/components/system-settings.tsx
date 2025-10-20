@@ -3,7 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { saveSystemSettings, getUsers, getImageList, getHistoryList, StoredUser, SystemSettings } from '@/services/webdav';
+import { saveSystemSettings, getUsers, getImageList, getHistoryList } from '@/services/db';
+import { SystemSettings, StoredUser } from '@/types';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';

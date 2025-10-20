@@ -1,16 +1,29 @@
 export type ImageStatus = 'queued' | 'in-progress' | 'uploaded' | 'error' | 'completed';
 
-export type ImageFile = {
+export interface ImageFile {
   id: string;
   name: string;
   url: string; 
-  webdavPath: string; // The full path to the file on WebDAV
+  webdavPath: string;
   status: ImageStatus;
-  uploadedBy: string; // Username of the user who uploaded the file
+  uploadedBy: string;
   claimedBy?: string;
   completedBy?: string;
   isUploading?: boolean;
-  createdAt?: number; // Timestamp for sorting
+  createdAt: number;
   completedAt?: number;
   completionNotes?: string;
 };
+
+export type UserRole = 'admin' | 'trusted' | 'user' | 'banned';
+
+export interface StoredUser {
+  username: string;
+  passwordHash: string;
+  role: UserRole;
+}
+
+export interface SystemSettings {
+    isMaintenance: boolean;
+    selfDestructDays: number;
+}

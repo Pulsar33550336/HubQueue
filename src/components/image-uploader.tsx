@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useRef, useState, useEffect } from 'react';
@@ -5,7 +6,6 @@ import Image from 'next/image';
 import { UploadCloud, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { uploadToWebdav } from '@/services/webdav';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,9 +21,10 @@ import { Label } from '@/components/ui/label';
 
 interface ImageUploaderProps {
   onImageUploaded: (image: { name: string, webdavPath: string }) => void;
+  uploadFunction: (fileName: string, dataUrl: string) => Promise<{ success: boolean, path?: string, error?: string }>;
 }
 
-export function ImageUploader({ onImageUploaded }: ImageUploaderProps) {
+export function ImageUploader({ onImageUploaded, uploadFunction }: ImageUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -115,7 +116,7 @@ export function ImageUploader({ onImageUploaded }: ImageUploaderProps) {
         reader.onload = async (e) => {
             try {
                 const dataUrl = e.target?.result as string;
-                const result = await uploadToWebdav(finalFileName, dataUrl);
+                const result = await uploadFunction(finalFileName, dataUrl);
                 
                 if (result.success && result.path) {
                     onImageUploaded({ name: finalFileName, webdavPath: result.path });

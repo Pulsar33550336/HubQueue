@@ -3,8 +3,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { getHistoryList, StoredUser, getUsers } from '@/services/webdav';
-import type { ImageFile } from '@/types';
+import { getHistoryList, getUsers } from '@/services/db';
+import type { ImageFile, StoredUser } from '@/types';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
