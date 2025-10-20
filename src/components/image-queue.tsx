@@ -17,16 +17,16 @@ interface ImageQueueProps {
   onUpload: (id: string) => void;
   onComplete: (id: string, notes: string) => void;
   onDelete: (id: string) => void;
-  isSyncing: boolean;
+  processingId: string | null;
 }
 
-export function ImageQueue({ images, stats, onClaim, onUnclaim, onUpload, onComplete, onDelete, isSyncing }: ImageQueueProps) {
+export function ImageQueue({ images, stats, onClaim, onUnclaim, onUpload, onComplete, onDelete, processingId }: ImageQueueProps) {
   return (
     <div className="mt-8">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold tracking-tight">图片队列</h2>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            {isSyncing && (
+            {processingId && (
                 <>
                     <RefreshCw className="w-4 h-4 animate-spin" /> 
                     <span>同步中...</span>
@@ -97,6 +97,7 @@ export function ImageQueue({ images, stats, onClaim, onUnclaim, onUpload, onComp
               onUpload={onUpload}
               onComplete={onComplete}
               onDelete={onDelete}
+              processingId={processingId}
             />
           ))}
         </div>

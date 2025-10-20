@@ -55,11 +55,19 @@ export default function SystemSettings() {
       if (user?.isAdmin) {
         setIsLoading(true);
         try {
-          const [images, history, users] = await Promise.all([
+          const [imagesResult, historyResult, usersResult] = await Promise.all([
             getImageList(),
             getHistoryList(),
             getUsers()
           ]);
+
+          if (imagesResult.error) throw new Error(`Failed to get images: ${imagesResult.error}`);
+          if (historyResult.error) throw new Error(`Failed to get history: ${historyResult.error}`);
+          if (usersResult.error) throw new Error(`Failed to get users: ${usersResult.error}`);
+
+          const images = imagesResult.data || [];
+          const history = historyResult.data || [];
+          const users = usersResult.data || [];
           
           const userStats: Record<string, UserStats> = {};
           users.forEach(u => {
@@ -88,12 +96,11 @@ export default function SystemSettings() {
             totalUploaded,
             userStats,
           });
-        } catch (error) {
-          console.error("Failed to load stats:", error);
+        } catch (error: any) {
            toast({
             variant: "destructive",
             title: "加载失败",
-            description: "无法加载统计数据。",
+            description: error.message || "无法加载统计数据。",
           });
         } finally {
           setIsLoading(false);
@@ -126,8 +133,8 @@ export default function SystemSettings() {
   const handleSaveSettings = async (settingsToSave: SystemSettings, key?: string) => {
     const stateKey = key || 'all';
     setUpdatingStates(prev => ({ ...prev, [stateKey]: true }));
-    const { success, error } = await saveSystemSettings(settingsToSave);
-     if (!success) {
+    const { error } = await saveSystemSettings(settingsToSave);
+     if (error) {
         toast({
             variant: 'destructive',
             title: '操作失败',
@@ -317,3 +324,5 @@ export default function SystemSettings() {
     </div>
   );
 }
+
+    

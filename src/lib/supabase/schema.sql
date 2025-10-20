@@ -1,86 +1,76 @@
-
--- Create users table
-CREATE TABLE IF NOT EXISTS public.users (
-  username text NOT NULL PRIMARY KEY,
-  password_hash text NOT NULL,
-  role text NOT NULL DEFAULT 'user'::text
+-- Create the 'images' table
+CREATE TABLE public.images (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    name character varying NOT NULL,
+    webdav_path character varying NOT NULL,
+    status character varying NOT NULL,
+    uploaded_by character varying NOT NULL,
+    claimed_by character varying,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    claimed_at timestamptz,
+    CONSTRAINT images_pkey PRIMARY KEY (id)
 );
 
--- Create images table
-CREATE TABLE IF NOT EXISTS public.images (
-  id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-  name text NOT NULL,
-  webdav_path text NOT NULL,
-  status text NOT NULL DEFAULT 'uploaded'::text,
-  uploaded_by text NOT NULL REFERENCES public.users(username),
-  claimed_by text REFERENCES public.users(username),
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-
--- Create history table (for completed images)
-CREATE TABLE IF NOT EXISTS public.history (
-  id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-  name text NOT NULL,
-  webdav_path text NOT NULL,
-  uploaded_by text NOT NULL,
-  completed_by text,
-  created_at timestamptz NOT NULL,
-  completed_at timestamptz NOT NULL DEFAULT now(),
-  completion_notes text
-);
-
--- Create system_settings table
-CREATE TABLE IF NOT EXISTS public.system_settings (
-    key text NOT NULL PRIMARY KEY,
-    value jsonb
-);
-
--- Function to move a completed image to the history table
-CREATE OR REPLACE FUNCTION public.move_to_history(
-    target_id uuid,
-    completed_by text,
+-- Create the 'history' table
+CREATE TABLE public.history (
+    id uuid NOT NULL,
+    name character varying NOT NULL,
+    webdav_path character varying NOT NULL,
+    status character varying NOT NULL,
+    uploaded_by character varying NOT NULL,
+    claimed_by character varying,
+    created_at timestamptz NOT NULL,
+    claimed_at timestamptz,
+    completed_by character varying,
     completed_at timestamptz,
-    completion_notes text
+    completion_notes text,
+    CONSTRAINT history_pkey PRIMARY KEY (id)
+);
+
+-- Create the 'users' table
+CREATE TABLE public.users (
+    username character varying NOT NULL,
+    password_hash character varying NOT NULL,
+    role character varying NOT NULL DEFAULT 'user'::character varying,
+    CONSTRAINT users_pkey PRIMARY KEY (username)
+);
+
+-- Create the 'system_settings' table
+CREATE TABLE public.system_settings (
+    key character varying NOT NULL,
+    value jsonb,
+    CONSTRAINT system_settings_pkey PRIMARY KEY (key)
+);
+
+-- Create the function to move a record from 'images' to 'history'
+CREATE OR REPLACE FUNCTION public.move_to_history(
+    p_id uuid,
+    p_completed_by character varying,
+    p_completed_at timestamptz,
+    p_completion_notes text
 )
 RETURNS void
 LANGUAGE plpgsql
 AS $$
-DECLARE
-    image_to_move images;
 BEGIN
-    -- Delete from images table and capture the deleted row
-    DELETE FROM public.images
-    WHERE id = target_id
-    RETURNING * INTO image_to_move;
+    -- Move the record from images to history
+    INSERT INTO public.history (
+        id, name, webdav_path, status, uploaded_by, claimed_by, created_at, claimed_at,
+        completed_by, completed_at, completion_notes
+    )
+    SELECT
+        id, name, webdav_path, 'completed', uploaded_by, claimed_by, created_at, claimed_at,
+        p_completed_by, p_completed_at, p_completion_notes
+    FROM public.images
+    WHERE id = p_id;
 
-    -- If a row was actually deleted, insert it into history
-    IF FOUND THEN
-        INSERT INTO public.history (
-            id,
-            name,
-            webdav_path,
-            uploaded_by,
-            created_at,
-            completed_by,
-            completed_at,
-            completion_notes
-        )
-        VALUES (
-            image_to_move.id,
-            image_to_move.name,
-            image_to_move.webdav_path,
-            image_to_move.uploaded_by,
-            image_to_move.created_at,
-            completed_by,
-            completed_at,
-            completion_notes
-        );
-    END IF;
+    -- Delete the record from images
+    DELETE FROM public.images
+    WHERE id = p_id;
 END;
 $$;
 
-
--- Function to get the last activity timestamp
+-- Create the function to get the last activity timestamp
 CREATE OR REPLACE FUNCTION public.get_last_activity_timestamp()
 RETURNS timestamptz
 LANGUAGE sql
@@ -91,10 +81,12 @@ AS $$
     );
 $$;
 
--- Grant usage on the new functions to the anon role
-GRANT EXECUTE ON FUNCTION public.move_to_history(uuid, text, timestamptz, text) TO anon;
-GRANT EXECUTE ON FUNCTION public.get_last_activity_timestamp() TO anon;
+-- Grant permissions on the tables
+GRANT ALL ON TABLE public.images TO service_role;
+GRANT ALL ON TABLE public.history TO service_role;
+GRANT ALL ON TABLE public.users TO service_role;
+GRANT ALL ON TABLE public.system_settings TO service_role;
 
--- Note: You might need to enable the pgcrypto extension for gen_random_uuid()
--- In Supabase, this is usually enabled by default. If not, run:
--- CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+-- Grant execute permission on the functions
+GRANT EXECUTE ON FUNCTION public.move_to_history(uuid, character varying, timestamptz, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.get_last_activity_timestamp() TO service_role;

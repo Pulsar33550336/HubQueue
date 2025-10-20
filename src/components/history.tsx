@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { Button } from './ui/button';
 import { ChevronDown, MessageSquare } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
+import { useToast } from '@/hooks/use-toast';
 
 function HistoryRow({ item, isUserDeleted }: { item: ImageFile; isUserDeleted: (username: string) => boolean }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -64,6 +65,7 @@ export default function History() {
   const [users, setUsers] = useState<StoredUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!isAuthLoading) {
@@ -80,18 +82,25 @@ export default function History() {
       if (user?.isAdmin) {
         setIsLoading(true);
         try {
-           const [historyList, userList] = await Promise.all([getHistoryList(), getUsers()]);
-           setHistory(historyList);
-           setUsers(userList);
-        } catch (error) {
-            console.error("Failed to fetch data", error);
+           const [historyResult, usersResult] = await Promise.all([getHistoryList(), getUsers()]);
+           if (historyResult.error) throw new Error(historyResult.error);
+           if (usersResult.error) throw new Error(usersResult.error);
+
+           setHistory(historyResult.data || []);
+           setUsers(usersResult.data || []);
+        } catch (error: any) {
+            toast({
+              variant: "destructive",
+              title: "加载失败",
+              description: error.message || "无法获取历史记录或用户列表。",
+            });
         } finally {
           setIsLoading(false);
         }
       }
     };
     fetchData();
-  }, [user]);
+  }, [user, toast]);
 
   const isUserDeleted = (username: string) => {
     return !users.some(u => u.username === username);
@@ -175,3 +184,5 @@ export default function History() {
     </div>
   );
 }
+
+    

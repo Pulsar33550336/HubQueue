@@ -47,23 +47,18 @@ export default function UserManagement() {
   const router = useRouter();
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (!isAuthLoading && (!user || !user.isAdmin)) {
-      router.push('/dashboard');
-    }
-  }, [user, isAuthLoading, router]);
-
   const fetchUsers = async () => {
       if (user?.isAdmin) {
         setIsLoading(true);
         try {
-           const userList = await getUsers();
-           setUsers(userList);
-        } catch (error) {
+           const usersResult = await getUsers();
+           if (usersResult.error) throw new Error(usersResult.error);
+           setUsers(usersResult.data || []);
+        } catch (error: any) {
           toast({
             variant: "destructive",
             title: "加载失败",
-            description: "无法从服务器获取用户列表。",
+            description: error.message || "无法从服务器获取用户列表。",
           });
         } finally {
           setIsLoading(false);
@@ -71,6 +66,16 @@ export default function UserManagement() {
       }
     };
     
+  useEffect(() => {
+    if (!isAuthLoading) {
+      if (!user) {
+        router.push('/login');
+      } else if (!user.isAdmin) {
+        router.push('/dashboard');
+      }
+    }
+  }, [user, isAuthLoading, router]);
+
   useEffect(() => {
     fetchUsers();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -84,9 +89,9 @@ export default function UserManagement() {
     );
     setUsers(updatedUsers);
 
-    const { success, error } = await saveUsers(updatedUsers);
+    const { error } = await saveUsers(updatedUsers);
     
-    if (!success) {
+    if (error) {
         toast({
             variant: 'destructive',
             title: '更新失败',
@@ -121,8 +126,8 @@ export default function UserManagement() {
     const originalUsers = [...users];
     const updatedUsers = users.filter(u => u.username !== username);
     
-    const { success, error } = await saveUsers(updatedUsers);
-    if (!success) {
+    const { error } = await saveUsers(updatedUsers);
+    if (error) {
         toast({
             variant: 'destructive',
             title: '删除失败',
@@ -264,3 +269,5 @@ export default function UserManagement() {
     </div>
   );
 }
+
+    

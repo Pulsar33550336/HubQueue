@@ -231,7 +231,7 @@ export function ImageUploader({ onImageUploaded, uploadFunction }: ImageUploader
           <div className="flex flex-col gap-4">
             {previewUrl && (
                 <div className="w-full aspect-video relative rounded-md overflow-hidden bg-muted">
-                    <Image src={previewUrl} alt="图片预览" layout="fill" objectFit="contain" />
+                    <Image src={previewUrl} alt="图片预览" fill style={{ objectFit: 'contain' }} />
                 </div>
             )}
             <div className="space-y-2">

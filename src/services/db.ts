@@ -1,3 +1,5 @@
+
+
 'use server';
 
 import { supabase } from '@/lib/supabase/client';
@@ -9,182 +11,275 @@ import { webdavConfig } from '@/config/webdav';
 const ABLY_API_KEY = process.env.ABLY_API_KEY;
 const ABLY_CHANNEL_NAME = 'hubqueue:updates';
 
-// --- Helper Functions ---
-
+// This function constructs the proxied URL for an image.
 function getProxiedUrl(webdavPath: string): string {
-    // The URL is now a local API route that proxies the image from WebDAV.
-    // This keeps the WebDAV server and credentials secure on the server side.
     return `/api/image?path=${encodeURIComponent(webdavPath)}`;
 }
 
+// --- Helper Functions ---
+
+function convertToImageFile(img: any): ImageFile {
+    const convertedImg: any = {};
+
+    // Copy all properties from the source object
+    for (const key in img) {
+        if (img.hasOwnProperty(key)) {
+            convertedImg[key] = img[key];
+        }
+    }
+    
+    if (img.webdavPath) {
+        convertedImg.url = getProxiedUrl(img.webdavPath);
+    }
+
+    // Ensure timestamps, which come as ISO strings from DB, are converted to numbers for the frontend
+    if (img.createdAt && typeof img.createdAt === 'string') {
+      convertedImg.createdAt = new Date(img.createdAt).getTime();
+    }
+    if (img.claimedAt && typeof img.claimedAt === 'string') {
+        convertedImg.claimedAt = new Date(img.claimedAt).getTime();
+    }
+    if (img.completedAt && typeof img.completedAt === 'string') {
+        convertedImg.completedAt = new Date(img.completedAt).getTime();
+    }
+    
+    return convertedImg as ImageFile;
+}
+
+
 // --- Ably Notifications ---
 
-async function notifyQueueUpdate() {
-    if (!ABLY_API_KEY) return;
+async function notifyAbly(name: string, data: any) {
+    if (!ABLY_API_KEY) {
+        console.log("Ably API key not configured, skipping notification.");
+        return;
+    }
     try {
-        const [images, history] = await Promise.all([getImageList(), getHistoryList()]);
-
         const ably = new Ably.Rest(ABLY_API_KEY);
         const channel = ably.channels.get(ABLY_CHANNEL_NAME);
-        await channel.publish('queue_updated', { images, history });
+        await channel.publish(name, data);
     } catch (error) {
-        console.error('Failed to notify Ably with queue update:', error);
+        console.error(`Failed to notify Ably with event '${name}':`, error);
     }
+}
+
+
+export async function notifyQueueUpdate(updated_id?: string) {
+    const [imagesResult, historyResult] = await Promise.all([getImageList(), getHistoryList()]);
+    // We only notify with the data, even if there were partial errors.
+    await notifyAbly('queue_updated', { 
+        images: imagesResult.data || [], 
+        history: historyResult.data || [], 
+        updated_id 
+    });
 }
 
 async function notifySystemUpdate() {
-    if (!ABLY_API_KEY) return;
-    try {
-        const ably = new Ably.Rest(ABLY_API_KEY);
-        const channel = ably.channels.get(ABLY_CHANNEL_NAME);
-        await channel.publish('system_updated', {});
-    } catch (error) {
-        console.error('Failed to notify Ably with system update:', error);
-    }
+    await notifyAbly('system_updated', {});
 }
+
 
 // --- Data Functions ---
+// --- DB functions now return { data, error } object for better error handling ---
 
-export async function getUsers(): Promise<StoredUser[]> {
-    const { data, error } = await supabase.from('users').select('*');
-    if (error) {
-        console.error('Error fetching users:', error);
-        return [];
+export async function getUsers(): Promise<{ data: StoredUser[] | null, error: string | null }> {
+    try {
+        const { data, error } = await supabase.from('users').select('*');
+        if (error) throw error;
+        return { data: data.map(u => ({ username: u.username, passwordHash: u.passwordHash, role: u.role })), error: null };
+    } catch (e: any) {
+        return { data: null, error: e.message };
     }
-    return data || [];
 }
 
-export async function saveUsers(users: StoredUser[]): Promise<{ success: boolean; error?: string }> {
-    const { error } = await supabase.from('users').upsert(users, { onConflict: 'username' });
+export async function saveUsers(users: StoredUser[]): Promise<{ data: any, error: string | null }> {
+    try {
+        const usersToUpsert = users.map(u => ({
+            username: u.username,
+            passwordHash: u.passwordHash,
+            role: u.role,
+        }));
+        const { data, error } = await supabase.from('users').upsert(usersToUpsert, { onConflict: 'username' });
 
-    if (error) {
-        console.error('Error saving users:', error);
-        return { success: false, error: error.message };
+        if (error) throw error;
+        await notifySystemUpdate();
+        return { data, error: null };
+    } catch (e: any) {
+        return { data: null, error: e.message };
     }
-    await notifySystemUpdate();
-    return { success: true };
 }
 
-export async function addUser(user: StoredUser): Promise<{ success: boolean; error?: string }> {
-    const { error } = await supabase.from('users').insert(user);
-    if (error) {
-        console.error('Error adding user:', error);
-        return { success: false, error: error.message };
+export async function addUser(user: StoredUser): Promise<{ data: StoredUser | null, error: string | null }> {
+    try {
+        const { data, error } = await supabase.from('users').insert({
+          username: user.username,
+          passwordHash: user.passwordHash,
+          role: user.role,
+        }).select().single();
+
+        if (error) throw error;
+        await notifySystemUpdate();
+        return { data, error: null };
+    } catch (e: any) {
+        return { data: null, error: e.message };
     }
-    await notifySystemUpdate();
-    return { success: true };
 }
 
-export async function getImageList(): Promise<ImageFile[]> {
-    const { data, error } = await supabase
-        .from('images')
-        .select('*')
-        .order('createdAt', { ascending: false });
+export async function getImageList(): Promise<{ data: ImageFile[] | null, error: string | null }> {
+    try {
+        const { data, error } = await supabase
+            .from('images')
+            .select('*')
+            .order('createdAt', { ascending: false });
 
-    if (error) {
-        console.error('Error fetching image list:', error);
-        return [];
+        if (error) throw error;
+        return { data: (data || []).map(convertToImageFile), error: null };
+    } catch(e: any) {
+        return { data: null, error: e.message };
     }
-    return (data || []).map(img => ({
-        ...img,
-        url: getProxiedUrl(img.webdavPath)
-    }));
 }
 
-export async function addImage(image: Omit<ImageFile, 'id' | 'url'>): Promise<{ success: boolean; error?: string }> {
-    const { error } = await supabase.from('images').insert({
-        ...image,
-        webdavPath: image.webdavPath,
-        uploadedBy: image.uploadedBy,
-        createdAt: image.createdAt,
-    });
-    if (error) {
-        console.error('Error adding image:', error);
-        return { success: false, error: error.message };
+export async function addImage(image: Omit<ImageFile, 'id' | 'url'>): Promise<{ data: { id: string } | null, error: string | null }> {
+    try {
+        const imageToInsert = {
+            name: image.name,
+            webdavPath: image.webdavPath,
+            status: image.status,
+            uploadedBy: image.uploadedBy,
+            createdAt: new Date(image.createdAt).toISOString(),
+        };
+
+        const { data, error } = await supabase.from('images').insert(imageToInsert).select('id').single();
+
+        if (error) throw error;
+        await notifyQueueUpdate(data.id);
+        return { data: {id: data.id}, error: null };
+    } catch(e: any) {
+        return { data: null, error: e.message };
     }
-    await notifyQueueUpdate();
-    return { success: true };
 }
 
-export async function updateImage(image: ImageFile): Promise<{ success: boolean; error?: string }> {
-    if (image.status === 'completed') {
-        const { error } = await supabase.rpc('move_to_history', {
-            target_id: image.id,
-            completed_by: image.completedBy,
-            completed_at: image.completedAt,
-            completion_notes: image.completionNotes
-        });
+export async function updateImage(image: ImageFile): Promise<{ data: any, error: string | null }> {
+    try {
+        if (image.status === 'completed') {
+            const { data: imageToMove, error: fetchError } = await supabase
+                .from('images')
+                .select('*')
+                .eq('id', image.id)
+                .single();
+            
+            if (fetchError || !imageToMove) {
+                throw new Error(fetchError?.message || 'Could not find the image to complete.');
+            }
 
-        if (error) {
-            console.error('Error moving image to history:', error);
-            return { success: false, error: error.message };
+            const historyData = {
+                id: imageToMove.id,
+                name: imageToMove.name,
+                webdavPath: imageToMove.webdavPath,
+                status: 'completed',
+                uploadedBy: imageToMove.uploadedBy,
+                createdAt: imageToMove.createdAt,
+                claimedAt: imageToMove.claimedAt, 
+                completedBy: image.completedBy,
+                completedAt: image.completedAt ? new Date(image.completedAt).toISOString() : null,
+                completionNotes: image.completionNotes,
+            };
+
+            const { error: insertError } = await supabase.from('history').insert(historyData);
+            if (insertError) throw insertError;
+
+            const { error: deleteError } = await supabase.from('images').delete().eq('id', image.id);
+            if (deleteError) throw deleteError;
+            
+        } else { // Handle 'claimed' or 'unclaimed' status updates
+            const imageToUpdate: Record<string, any> = {
+                status: image.status,
+                claimedBy: image.claimedBy,
+                claimedAt: image.claimedAt ? new Date(image.claimedAt).toISOString() : null,
+            };
+
+            for (const key in imageToUpdate) {
+                if (imageToUpdate[key] === undefined) {
+                    imageToUpdate[key] = null;
+                }
+            }
+
+            const { data, error } = await supabase.from('images').update(imageToUpdate).eq('id', image.id);
+            if (error) throw error;
         }
-    } else {
-        const { id, url, ...updateData } = image;
-        const { error } = await supabase.from('images').update(updateData).eq('id', id);
-        if (error) {
-            console.error('Error updating image:', error);
-            return { success: false, error: error.message };
-        }
-    }
 
-    await notifyQueueUpdate();
-    return { success: true };
+        await notifyQueueUpdate(image.id);
+        return { data: { success: true }, error: null };
+    } catch (e: any) {
+        return { data: null, error: e.message };
+    }
 }
 
-export async function deleteImage(id: string): Promise<{ success: boolean; error?: string }> {
-    const { error } = await supabase.from('images').delete().eq('id', id);
-    if (error) {
-        console.error('Error deleting image:', error);
-        return { success: false, error: error.message };
+
+export async function deleteImage(id: string): Promise<{ data: any, error: string | null }> {
+    try {
+        const { error: imageDeleteError } = await supabase.from('images').delete().eq('id', id);
+        if (imageDeleteError && imageDeleteError.code !== 'PGRST116') throw imageDeleteError;
+
+        const { error: historyDeleteError } = await supabase.from('history').delete().eq('id', id);
+        if (historyDeleteError && historyDeleteError.code !== 'PGRST116') throw historyDeleteError;
+
+        await notifyQueueUpdate(id);
+        return { data: { success: true }, error: null };
+    } catch(e: any) {
+        return { data: null, error: e.message };
     }
-    await notifyQueueUpdate();
-    return { success: true };
 }
 
-export async function getHistoryList(): Promise<ImageFile[]> {
-    const { data, error } = await supabase
-        .from('history')
-        .select('*')
-        .order('completedAt', { ascending: false });
 
-    if (error) {
-        console.error('Error fetching history list:', error);
-        return [];
+export async function getHistoryList(): Promise<{ data: ImageFile[] | null, error: string | null }> {
+    try {
+        const { data, error } = await supabase
+            .from('history')
+            .select('*')
+            .order('completedAt', { ascending: false });
+
+        if (error) throw error;
+        return { data: (data || []).map(convertToImageFile), error: null };
+    } catch(e: any) {
+        return { data: null, error: e.message };
     }
-    return (data || []).map(img => ({
-        ...img,
-        url: getProxiedUrl(img.webdavPath)
-    }));
 }
 
-export async function getSystemSettings(): Promise<SystemSettings> {
-    const { data, error } = await supabase.from('system_settings').select('value').eq('key', 'settings');
+export async function getSystemSettings(): Promise<{ data: SystemSettings | null, error: string | null }> {
     const defaultSettings: SystemSettings = { isMaintenance: false, selfDestructDays: 5 };
-
-    if (error || !data || data.length === 0) {
-        console.error('Could not fetch system settings, returning default.', error);
-        return defaultSettings;
+    try {
+        const { data, error } = await supabase.from('system_settings').select('value').eq('key', 'settings').single();
+        if (error) {
+           if (error.code === 'PGRST116') { // Not found, return default
+              return { data: defaultSettings, error: null };
+           }
+           throw error;
+        }
+        return { data: { ...defaultSettings, ...(data.value as object) }, error: null };
+    } catch(e: any) {
+        return { data: null, error: e.message };
     }
-    return { ...defaultSettings, ...(data[0].value as object) };
 }
 
-export async function saveSystemSettings(settings: SystemSettings): Promise<{ success: boolean; error?: string }> {
-    const { error } = await supabase
-        .from('system_settings')
-        .upsert({ key: 'settings', value: settings }, { onConflict: 'key' });
+export async function saveSystemSettings(settings: SystemSettings): Promise<{ data: any, error: string | null }> {
+    try {
+        const { data, error } = await supabase
+            .from('system_settings')
+            .upsert({ key: 'settings', value: settings }, { onConflict: 'key' });
 
-    if (error) {
-        console.error('Error saving system settings:', error);
-        return { success: false, error: error.message };
+        if (error) throw error;
+        await notifySystemUpdate();
+        return { data, error: null };
+    } catch (e: any) {
+        return { data: null, error: e.message };
     }
-    await notifySystemUpdate();
-    return { success: true };
 }
 
 export async function uploadToWebdav(fileName: string, dataUrl: string): Promise<{ success: boolean, path?: string, error?: string }> {
     if (!webdavConfig.url || !webdavConfig.username || !webdavConfig.password) {
-        return { success: false, error: 'WebDAV configuration is incomplete on the server.' };
+        const errorMsg = 'WebDAV configuration is incomplete on the server.';
+        return { success: false, error: errorMsg };
     }
     
     try {
@@ -200,30 +295,63 @@ export async function uploadToWebdav(fileName: string, dataUrl: string): Promise
 
         return { success: true, path: remotePath };
     } catch (error: any) {
-        console.error('Failed to upload to WebDAV', error);
         return { success: false, error: error.message || 'An unknown error occurred during upload.' };
     }
 }
 
-export async function checkSelfDestructStatus(): Promise<{ selfDestruct: boolean }> {
-    const lastTime = await getLastUploadTime();
-    if (lastTime === null) {
-        return { selfDestruct: false };
-    }
-    const settings = await getSystemSettings();
-    const selfDestructDays = settings.selfDestructDays || 5;
+export async function checkSelfDestructStatus(): Promise<{ data: { selfDestruct: boolean } | null, error: string | null }> {
+    try {
+        const { data: lastTime, error: lastTimeError } = await getLastUploadTime();
+        if (lastTimeError) throw new Error(lastTimeError);
 
-    const deadline = Date.now() - (selfDestructDays * 24 * 60 * 60 * 1000);
-    return { selfDestruct: lastTime < deadline };
+        if (lastTime === null) {
+            return { data: { selfDestruct: false }, error: null };
+        }
+
+        const { data: settings, error: settingsError } = await getSystemSettings();
+        if (settingsError || !settings) throw new Error(settingsError || "Could not retrieve system settings");
+        
+        const selfDestructDays = settings.selfDestructDays || 5;
+        const deadline = Date.now() - (selfDestructDays * 24 * 60 * 60 * 1000);
+
+        return { data: { selfDestruct: lastTime < deadline }, error: null };
+    } catch (e: any) {
+        return { data: null, error: e.message };
+    }
 }
 
-export async function getLastUploadTime(): Promise<number | null> {
-    const { data, error } = await supabase.rpc('get_last_activity_timestamp');
+export async function getLastUploadTime(): Promise<{ data: number | null, error: string | null }> {
+    try {
+        const { data: lastImage, error: imageError } = await supabase
+            .from('images')
+            .select('createdAt')
+            .order('createdAt', { ascending: false })
+            .limit(1)
+            .single();
 
-    if (error) {
-        console.error('Error fetching last activity timestamp:', error);
-        return null;
+        const { data: lastHistory, error: historyError } = await supabase
+            .from('history')
+            .select('completedAt')
+            .order('completedAt', { ascending: false })
+            .limit(1)
+            .single();
+        
+        if (imageError && imageError.code !== 'PGRST116') { // PGRST116: "exact one row not found"
+            console.error('Error fetching last image timestamp:', imageError);
+        }
+        if (historyError && historyError.code !== 'PGRST116') {
+            console.error('Error fetching last history timestamp:', historyError);
+        }
+        
+        const lastImageTime = lastImage?.createdAt ? new Date(lastImage.createdAt).getTime() : 0;
+        const lastHistoryTime = lastHistory?.completedAt ? new Date(lastHistory.completedAt).getTime() : 0;
+
+        const mostRecentTime = Math.max(lastImageTime, lastHistoryTime);
+
+        return { data: mostRecentTime > 0 ? mostRecentTime : null, error: null };
+    } catch(e: any) {
+        return { data: null, error: e.message };
     }
+}
+
     
-    return data ? data : null;
-}

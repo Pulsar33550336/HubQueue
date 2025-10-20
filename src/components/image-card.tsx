@@ -32,6 +32,7 @@ interface ImageCardProps {
   onUpload: (id: string) => void; 
   onComplete: (id: string, notes: string) => void;
   onDelete: (id: string) => void;
+  processingId: string | null;
 }
 
 const statusConfig = {
@@ -43,13 +44,15 @@ const statusConfig = {
 } as const;
 
 
-export function ImageCard({ image, onClaim, onUnclaim, onUpload, onComplete, onDelete }: ImageCardProps) {
+export function ImageCard({ image, onClaim, onUnclaim, onUpload, onComplete, onDelete, processingId }: ImageCardProps) {
   const { user } = useAuth();
   const { id, name, url, status, claimedBy, uploadedBy, isUploading } = image;
   const config = statusConfig[status];
   const [isImageLoading, setIsImageLoading] = useState(true);
   const [completionNotes, setCompletionNotes] = useState('');
   const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false);
+  
+  const isLoading = processingId === id;
 
 
   const getAiHint = (imageName: string): string => {
@@ -111,7 +114,10 @@ export function ImageCard({ image, onClaim, onUnclaim, onUpload, onComplete, onD
       <div className="p-4 flex-1 flex flex-col">
         <div className="flex justify-between items-start mb-2 gap-2">
             <h3 className="font-semibold text-sm leading-snug break-all text-foreground">{name}</h3>
-            <Badge variant={config.variant} className="flex-shrink-0">{config.label}</Badge>
+            <Badge variant={config.variant} className="flex-shrink-0 gap-1.5">
+              {isLoading && <Loader2 className="h-3 w-3 animate-spin" />}
+              {config.label}
+            </Badge>
         </div>
         
         <div className="flex items-center text-xs text-muted-foreground mb-4 gap-4">
@@ -133,8 +139,8 @@ export function ImageCard({ image, onClaim, onUnclaim, onUpload, onComplete, onD
                 <div className='flex-1'>
                     {status === 'uploaded' && (
                         (user?.isTrusted) ? (
-                          <Button onClick={() => onClaim(id)} size="sm" className="w-full">
-                              <GitBranch className="mr-2 h-4 w-4"/>
+                          <Button onClick={() => onClaim(id)} size="sm" className="w-full" disabled={isLoading}>
+                              {isLoading ? <Loader2 className="animate-spin"/> : <GitBranch />}
                               认领任务
                           </Button>
                         ) : (
@@ -146,18 +152,18 @@ export function ImageCard({ image, onClaim, onUnclaim, onUpload, onComplete, onD
                     )}
                     {isClaimedByCurrentUser && (
                          <div className="w-full grid grid-cols-3 gap-2">
-                            <Button onClick={handleDownload} size="sm" variant="secondary">
+                            <Button onClick={handleDownload} size="sm" variant="secondary" disabled={isLoading}>
                                 <Download className="mr-2 h-4 w-4" />
                                 下载
                             </Button>
-                            <Button onClick={() => onUnclaim(id)} size="sm" variant="outline">
-                               <Undo2 className="mr-2 h-4 w-4" />
+                            <Button onClick={() => onUnclaim(id)} size="sm" variant="outline" disabled={isLoading}>
+                               {isLoading ? <Loader2 className="animate-spin"/> : <Undo2 />}
                                 放回
                             </Button>
                              <Dialog open={isCompleteDialogOpen} onOpenChange={setIsCompleteDialogOpen}>
                                 <DialogTrigger asChild>
-                                    <Button size="sm">
-                                        <PartyPopper className="mr-2 h-4 w-4" />
+                                    <Button size="sm" disabled={isLoading}>
+                                        {isLoading ? <Loader2 className="animate-spin"/> : <PartyPopper />}
                                         完成
                                     </Button>
                                 </DialogTrigger>
@@ -190,8 +196,8 @@ export function ImageCard({ image, onClaim, onUnclaim, onUpload, onComplete, onD
                     )}
                     {isClaimedByOther && (
                         user?.isAdmin ? (
-                            <Button onClick={() => onUnclaim(id)} size="sm" variant="destructive" className="w-full">
-                                <ShieldAlert className="mr-2 h-4 w-4" />
+                            <Button onClick={() => onUnclaim(id)} size="sm" variant="destructive" className="w-full" disabled={isLoading}>
+                                {isLoading ? <Loader2 className="animate-spin"/> : <ShieldAlert />}
                                 强制放回
                             </Button>
                         ) : (
@@ -207,21 +213,21 @@ export function ImageCard({ image, onClaim, onUnclaim, onUpload, onComplete, onD
                         </div>
                     )}
                     {status === 'error' && (
-                       <Button onClick={handleRetryUpload} variant="destructive" size="sm" className="w-full" disabled={isUploading}>
-                            {isUploading ? (
+                       <Button onClick={handleRetryUpload} variant="destructive" size="sm" className="w-full" disabled={isUploading || isLoading}>
+                            {isUploading || isLoading ? (
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
                             ) : (
                                 <RefreshCcw className="mr-2 h-4 w-4"/>
                             )}
-                            {isUploading ? '重试中...' : '重试上传'}
+                            {isUploading || isLoading ? '重试中...' : '重试上传'}
                         </Button>
                     )}
                 </div>
                  {canUserDelete && (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-9 w-9 flex-shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
-                          <Trash2 className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" className="h-9 w-9 flex-shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" disabled={isLoading}>
+                          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>

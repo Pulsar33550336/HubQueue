@@ -11,6 +11,7 @@ export interface ImageFile {
   completedBy?: string;
   isUploading?: boolean;
   createdAt: number;
+  claimedAt?: number;
   completedAt?: number;
   completionNotes?: string;
 };
