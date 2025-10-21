@@ -6,7 +6,7 @@ import type { ImageFile } from '@/types';
 import { ImageUploader } from './image-uploader';
 import { ImageQueue } from './image-queue';
 import { useToast } from "@/hooks/use-toast";
-import { getImageList, getHistoryList, addImage, updateImage, deleteImage, uploadToWebdav, notifyQueueUpdate } from '@/services/db';
+import { addImage, deleteImage, getHistoryList, getImageList, notifyQueueUpdate, updateImage, uploadToWebdav } from '@/services/db';
 import { Skeleton } from './ui/skeleton';
 import { RefreshCw, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -63,7 +63,7 @@ function SelfDestructTimer() {
       }
       
       const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60));
+      const hours = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
 
@@ -98,8 +98,8 @@ function SelfDestructTimer() {
     danger: 'text-destructive animate-pulse',
   };
 
-  const formattedStartTime = startTime ? format(new Date(startTime), 'yyyy-MM-dd HH:mm') : 'N/A';
-  const formattedEndTime = endTime ? format(new Date(endTime), 'yyyy-MM-dd HH:mm') : '计算中...';
+  const formattedStartTime = startTime ? format(new Date(startTime), 'yyyy-MM-dd hh:mm') : 'N/A';
+  const formattedEndTime = endTime ? format(new Date(endTime), 'yyyy-MM-dd hh:mm') : '计算中...';
 
 
   return (
