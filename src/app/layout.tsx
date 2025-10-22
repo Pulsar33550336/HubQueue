@@ -1,11 +1,7 @@
-import type {Metadata} from 'next';
+import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from '@/context/AuthContext';
-<<<<<<< HEAD
-=======
-import TopLoaderWrapper from '@/components/top-loader';
->>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
 import { ThemeProvider } from '@/components/theme-provider';
 
 export const metadata: Metadata = {
@@ -36,15 +32,11 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-<<<<<<< HEAD
-=======
-            <TopLoaderWrapper />
->>>>>>> c1b8b04 (Revert "使该项目符合 ClassIsland Hub 规范（逃）")
             {children}
             <Toaster />
-          </ThemeProvider>
-        </AuthProvider>
-      </body>
-    </html>
+          </ThemeProvider >
+        </AuthProvider >
+      </body >
+    </html >
   );
 }
